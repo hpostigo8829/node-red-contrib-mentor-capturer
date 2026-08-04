@@ -1,0 +1,96 @@
+<style>
+
+.production-report-config{
+ display:flex;
+ gap:6px;
+ align-items:center;
+}
+
+</style>
+
+<script type="text/javascript">
+
+RED.nodes.registerType('production-reporter',{
+
+ category:'mentor-capturer',
+ color:'#23A5F6',
+
+ defaults:{
+  name:{value:""},
+  interval:{value:60,required:true,validate:RED.validators.number()},
+  unit:{value:"seconds"}
+ },
+
+ inputs:1,
+ outputs:1,
+ icon:"file.png",
+ paletteLabel:"production reporter",
+
+ label:function(){
+  return this.name || "production reporter"
+ }
+
+})
+
+</script>
+
+<script type="text/x-red" data-template-name="production-reporter">
+
+<div class="form-row">
+ <label>Name</label>
+ <input type="text" id="node-input-name">
+</div>
+
+<div class="form-row">
+ <label>Report Interval</label>
+
+ <div class="production-report-config">
+
+  <input type="number"
+   id="node-input-interval"
+   style="width:90px;"
+   min="1">
+
+  <select id="node-input-unit" style="width:130px;">
+   <option value="seconds">Seconds</option>
+   <option value="minutes">Minutes</option>
+   <option value="hours">Hours</option>
+  </select>
+
+ </div>
+
+</div>
+
+</script>
+
+<script type="text/x-red" data-help-name="production-reporter">
+
+<p>
+Genera reportes de producción agregando datos de sensores y eventos de alarmas en un intervalo de tiempo configurable.
+</p>
+
+<h3>Entradas</h3>
+<ul>
+<li><b>Sensores:</b> Mensajes con <code>msg.variables</code></li>
+<li><b>Alarmas:</b> Mensajes con <code>msg.payload.alarm_name</code></li>
+</ul>
+
+<h3>Salida</h3>
+<p>
+Emite un reporte consolidado con:
+</p>
+<ul>
+<li><code>device_uuid</code></li>
+<li><code>device_name</code></li>
+<li><code>variables</code> (conteo acumulado)</li>
+<li><code>alarms</code> (rangos de activación)</li>
+<li><code>start_range</code> / <code>end_range</code></li>
+</ul>
+
+<h3>Configuración</h3>
+<p>
+Define cada cuánto tiempo se genera el reporte:
+segundos, minutos o horas.
+</p>
+
+</script>

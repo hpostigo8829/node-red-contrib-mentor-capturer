@@ -1,0 +1,65 @@
+<script type="text/html" data-template-name="modbus-registers-to-number">
+
+    <div class="form-row">
+        <label for="node-input-name">
+            <i class="fa fa-tag"></i> Name
+        </label>
+        <input type="text" id="node-input-name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-tipo">
+            <i class="fa fa-cogs"></i> Data Type
+        </label>
+        <select id="node-input-tipo">
+            <option value="INT16">INT16</option>
+            <option value="UINT16">UINT16</option>
+            <option value="INT32">INT32</option>
+            <option value="UINT32">UINT32</option>
+            <option value="FLOAT32">FLOAT32</option>
+            <option value="INT64">INT64</option>
+            <option value="UINT64">UINT64</option>
+            <option value="FLOAT64">FLOAT64</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-byteOrder">
+            Byte Order
+        </label>
+        <select id="node-input-byteOrder">
+            <option value="BE">Big Endian</option>
+            <option value="LE">Little Endian</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-wordOrder">
+            Word Order
+        </label>
+        <select id="node-input-wordOrder">
+            <option value="normal">Normal</option>
+            <option value="swap">Swap</option>
+        </select>
+    </div>
+
+</script>
+
+<script type="text/javascript">
+RED.nodes.registerType('modbus-registers-to-number',{
+    category: 'mentor-capturer',
+    color: '#E9967A',
+    defaults: {
+        name: {value:""},
+        tipo: {value:"INT16"},
+        byteOrder: {value:"BE"},
+        wordOrder: {value:"normal"}
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "modbus.png",
+    label: function() {
+        return this.name || "modbus-registers-to-number";
+    }
+});
+</script>

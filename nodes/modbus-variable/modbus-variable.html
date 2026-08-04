@@ -1,0 +1,490 @@
+<style>
+
+.threshold-container{
+ margin-top:6px;
+ border-top:1px solid #ddd;
+ padding-top:6px;
+}
+
+.threshold-header{
+ cursor:pointer;
+ font-weight:bold;
+ color:#444;
+ margin-bottom:5px;
+}
+
+.threshold-list{
+ margin-left:10px;
+}
+
+.threshold-row{
+ display:flex;
+ gap:6px;
+ align-items:center;
+ flex-wrap:wrap;
+}
+
+.threshold-name{
+ width:140px !important;
+}
+
+.threshold-condition{
+ width:120px !important;
+}
+
+.threshold-val1,
+.threshold-val2{
+ width:70px !important;
+}
+
+.threshold-priority{
+ width:90px !important;
+}
+
+</style>
+
+
+<script type="text/javascript">
+
+var functions=[
+ {v:"FC1",t:"FC1 Read Coils"},
+ {v:"FC2",t:"FC2 Read Discrete Inputs"},
+ {v:"FC3",t:"FC3 Read Holding Registers"},
+ {v:"FC4",t:"FC4 Read Input Registers"}
+]
+
+var datatypes=[
+ {v:"bool",t:"Boolean"},
+ {v:"int16",t:"Int16"},
+ {v:"uint16",t:"UInt16 / Word"},
+ {v:"int32",t:"Int32"},
+ {v:"uint32",t:"UInt32 / DWord"},
+ {v:"float32",t:"Float32"},
+ {v:"int64",t:"Int64"},
+ {v:"uint64",t:"UInt64"},
+ {v:"float64",t:"Float64 / Double"}
+]
+
+var types=[
+ {v:"instantaneous",t:"instantaneous"},
+ {v:"counter",t:"counter"},
+ {v:"state",t:"state"}
+]
+
+var byteorders=[
+ {v:"BE",t:"Big Endian"},
+ {v:"LE",t:"Little Endian"}
+]
+
+var wordorders=[
+ {v:"normal",t:"Normal"},
+ {v:"swap",t:"Swap Words"}
+]
+
+var scales=[
+ {v:"0.001",t:"0.001"},
+ {v:"0.01",t:"0.01"},
+ {v:"0.1",t:"0.1"},
+ {v:"1",t:"1"},
+ {v:"10",t:"10"},
+ {v:"100",t:"100"},
+ {v:"1000",t:"1000"}
+]
+
+var conditions=[
+ {v:"gt",t:"Mayor (>)"},
+ {v:"gte",t:"Mayor Igual (>=)"},
+ {v:"eq",t:"Igual (=)"},
+ {v:"lte",t:"Menor Igual (<=)"},
+ {v:"lt",t:"Menor (<)"},
+ {v:"between",t:"Entre"}
+]
+
+var priorities=[
+ {v:"low",t:"Low"},
+ {v:"medium",t:"Medium"},
+ {v:"high",t:"High"}
+]
+
+function refreshRow(row){
+
+let fc=row.find(".node-input-function").val()
+let datatypeField=row.find(".node-input-datatype")
+let datatype=datatypeField.val()
+
+let byteRow=row.find(".row-byte")
+let wordRow=row.find(".row-word")
+let scaleRow=row.find(".row-scale")
+
+byteRow.hide()
+wordRow.hide()
+scaleRow.hide()
+
+datatypeField.prop("disabled",false)
+datatypeField.find("option").prop("disabled",false)
+
+if(fc==="FC1"||fc==="FC2"){
+
+ datatypeField.val("bool")
+ datatypeField.find("option").not('[value="bool"]').prop("disabled",true)
+ datatypeField.prop("disabled",true)
+
+ return
+}
+
+datatypeField.find('option[value="bool"]').prop("disabled",true)
+
+if(datatype==="bool"){
+
+ datatypeField.val("uint16")
+ datatype="uint16"
+
+}
+
+if(datatype==="int16"||datatype==="uint16"){
+
+ scaleRow.show()
+ return
+
+}
+
+byteRow.show()
+wordRow.show()
+scaleRow.show()
+
+}
+
+
+RED.nodes.registerType('modbus-variable',{
+
+category:'mentor-capturer',
+color:'#E9967A',
+
+defaults:{
+ name:{value:""},
+ device_uuid:{value:""},
+ device_name:{value:""},
+ unitid:{value:"1"},
+ sequences:{value:[]},
+ server:{
+  type:'modbus-client',
+  required:true
+ }
+},
+
+inputs:1,
+outputs:3,
+icon:'modbus.png',
+paletteLabel:'Modbus Variable',
+
+label:function(){
+ if(this.name) return this.name
+ return "Modbus Variable"
+},
+
+oneditprepare:function(){
+
+$("#node-input-sequences-container").editableList({
+
+addItem:function(row,index,data){
+
+let sequence=data||{}
+
+row.css({
+ overflow:'hidden',
+ whiteSpace:'nowrap'
+})
+
+let r0=$('<div/>',{class:"form-row"}).appendTo(row)
+let r1=$('<div/>',{class:"form-row"}).appendTo(row)
+let rType=$('<div/>',{class:"form-row"}).appendTo(row)
+let r2=$('<div/>',{class:"form-row"}).appendTo(row)
+let r3=$('<div/>',{class:"form-row"}).appendTo(row)
+let r4=$('<div/>',{class:"form-row row-byte"}).appendTo(row)
+let r5=$('<div/>',{class:"form-row row-word"}).appendTo(row)
+let r6=$('<div/>',{class:"form-row row-scale"}).appendTo(row)
+let r7=$('<div/>',{class:"form-row"}).appendTo(row)
+
+$('<label/>').text("Name").appendTo(r0)
+let nameField=$('<input/>',{class:"node-input-sequencename"}).appendTo(r0)
+
+$('<label/>').text("Unit").appendTo(r1)
+let unitField=$('<input/>',{class:"node-input-unit"}).appendTo(r1)
+
+$('<label/>').text("Type").appendTo(rType)
+let typeField=$('<select/>',{class:"node-input-type"}).appendTo(rType)
+
+types.forEach(function(t){
+ typeField.append($("<option>").val(t.v).text(t.t))
+})
+
+$('<label/>').text("Function").appendTo(r2)
+let fcField=$('<select/>',{class:"node-input-function"}).appendTo(r2)
+
+functions.forEach(function(f){
+ fcField.append($("<option>").val(f.v).text(f.t))
+})
+
+$('<label/>').text("Datatype").appendTo(r3)
+let datatypeField=$('<select/>',{class:"node-input-datatype"}).appendTo(r3)
+
+datatypes.forEach(function(d){
+ datatypeField.append($("<option>").val(d.v).text(d.t))
+})
+
+$('<label/>').text("Byte Order").appendTo(r4)
+let byteField=$('<select/>',{class:"node-input-byteorder"}).appendTo(r4)
+
+byteorders.forEach(function(b){
+ byteField.append($("<option>").val(b.v).text(b.t))
+})
+
+$('<label/>').text("Word Order").appendTo(r5)
+let wordField=$('<select/>',{class:"node-input-wordorder"}).appendTo(r5)
+
+wordorders.forEach(function(w){
+ wordField.append($("<option>").val(w.v).text(w.t))
+})
+
+$('<label/>').text("Scale").appendTo(r6)
+let scaleField=$('<select/>',{class:"node-input-scale"}).appendTo(r6)
+
+scales.forEach(function(s){
+ scaleField.append($("<option>").val(s.v).text(s.t))
+})
+
+$('<label/>').text("Address").appendTo(r7)
+let addressField=$('<input/>',{class:"node-input-address"}).appendTo(r7)
+
+nameField.val(sequence.name||"")
+unitField.val(sequence.unit||"")
+typeField.val(sequence.type||"instantaneous")
+datatypeField.val(sequence.datatype||"uint16")
+byteField.val(sequence.byteorder||"BE")
+wordField.val(sequence.wordorder||"normal")
+scaleField.val(sequence.scale||"1")
+fcField.val(sequence.fc||"FC3")
+addressField.val(sequence.address||"")
+
+let thrContainer=$('<div/>',{class:"threshold-container"}).appendTo(row)
+
+let thrHeader=$('<div/>',{class:"threshold-header"}).appendTo(thrContainer)
+
+let thrList=$('<ol/>',{class:"thresholds-list threshold-list"}).appendTo(thrContainer)
+
+let loadingThresholds=true
+
+thrList.hide()
+
+function updateThresholdCount(){
+
+ let count=thrList.editableList('items').length
+
+ thrHeader.text(
+  (thrList.is(":visible")?"▼ ":"▶ ")+"Thresholds ("+count+")"
+ )
+
+}
+
+thrHeader.on("click",function(){
+
+ if(thrList.is(":visible")){
+  thrList.hide()
+ }else{
+  thrList.show()
+ }
+
+ updateThresholdCount()
+
+})
+
+thrList.editableList({
+
+addItem:function(trow,i,tdata){
+
+if(!loadingThresholds){
+ thrList.show()
+}
+
+let th=tdata||{}
+
+let r1=$('<div/>',{class:"threshold-row"}).appendTo(trow)
+
+let name=$('<input/>',{class:"threshold-name",placeholder:"Nombre"}).appendTo(r1)
+
+let cond=$('<select/>',{class:"threshold-condition"}).appendTo(r1)
+
+conditions.forEach(function(c){
+ cond.append($("<option>").val(c.v).text(c.t))
+})
+
+let val1=$('<input/>',{type:"number",class:"threshold-val1",placeholder:"V1"}).appendTo(r1)
+
+let val2=$('<input/>',{type:"number",class:"threshold-val2",placeholder:"V2"}).appendTo(r1)
+
+let prio=$('<select/>',{class:"threshold-priority"}).appendTo(r1)
+
+priorities.forEach(function(p){
+ prio.append($("<option>").val(p.v).text(p.t))
+})
+
+name.val(th.name||"")
+cond.val(th.condition||"gt")
+val1.val(th.value||"")
+val2.val(th.value2||"")
+prio.val(th.priority||"low")
+
+function updateCond(){
+
+ if(cond.val()==="between"){
+  val2.show()
+ }else{
+  val2.hide()
+ }
+
+}
+
+cond.change(updateCond)
+updateCond()
+
+updateThresholdCount()
+
+},
+
+removeItem:function(){
+ updateThresholdCount()
+},
+
+removable:true,
+sortable:true
+
+})
+
+if(sequence.thresholds){
+ sequence.thresholds.forEach(function(t){
+  thrList.editableList('addItem',t)
+ })
+}
+
+loadingThresholds=false
+
+updateThresholdCount()
+
+function update(){
+ refreshRow(row)
+}
+
+fcField.change(update)
+datatypeField.change(update)
+
+update()
+
+},
+
+removable:true,
+sortable:true
+
+})
+
+if(!this.sequences) this.sequences=[]
+
+for(let i=0;i<this.sequences.length;i++){
+ $("#node-input-sequences-container").editableList('addItem',this.sequences[i])
+}
+
+},
+
+oneditsave:function(){
+
+let sequences=$("#node-input-sequences-container").editableList('items')
+
+let node=this
+
+node.sequences=[]
+
+sequences.each(function(){
+
+let seq=$(this)
+
+let datatype=seq.find(".node-input-datatype").val()
+
+let quantity=1
+
+if(["int32","uint32","float32"].includes(datatype)) quantity=2
+if(["int64","uint64","float64"].includes(datatype)) quantity=4
+
+let thresholds=[]
+
+seq.find(".thresholds-list").editableList('items').each(function(){
+
+let t=$(this)
+
+thresholds.push({
+
+ name:t.find(".threshold-name").val(),
+ condition:t.find(".threshold-condition").val(),
+ value:t.find(".threshold-val1").val(),
+ value2:t.find(".threshold-val2").val(),
+ priority:t.find(".threshold-priority").val()
+
+})
+
+})
+
+node.sequences.push({
+
+ name:seq.find(".node-input-sequencename").val(),
+ unit:seq.find(".node-input-unit").val(),
+ type:seq.find(".node-input-type").val(),
+ datatype:datatype,
+ byteorder:seq.find(".node-input-byteorder").val(),
+ wordorder:seq.find(".node-input-wordorder").val(),
+ scale:seq.find(".node-input-scale").val(),
+ fc:seq.find(".node-input-function").val(),
+ address:seq.find(".node-input-address").val(),
+ quantity:quantity,
+ thresholds:thresholds
+
+})
+
+})
+
+}
+
+})
+
+</script>
+
+
+<script type="text/x-red" data-template-name="modbus-variable">
+
+<div class="form-row">
+<label>Name</label>
+<input type="text" id="node-input-name">
+</div>
+
+<div class="form-row">
+<label>Device UUID</label>
+<input type="text" id="node-input-device_uuid">
+</div>
+
+<div class="form-row">
+<label>Device Name</label>
+<input type="text" id="node-input-device_name">
+</div>
+
+<div class="form-row">
+<label>Unit ID</label>
+<input type="text" id="node-input-unitid">
+</div>
+
+<div class="form-row">
+<label>Modbus Server</label>
+<input type="text" id="node-input-server">
+</div>
+
+<div class="form-row">
+<ol id="node-input-sequences-container"></ol>
+</div>
+
+</script>

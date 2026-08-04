@@ -1,0 +1,143 @@
+<script type="text/javascript">
+
+RED.nodes.registerType('random-generator',{
+
+ category:'mentor-capturer',
+ color:'#07A52F',
+
+ defaults:{
+  name:{value:""},
+  min:{value:0},
+  max:{value:100},
+  interval:{value:1},
+  unit:{value:"seconds"},
+  mode:{value:"random"},
+  numberType:{value:"decimal"},
+  decimals:{value:2},
+  steps:{value:5},
+  stepMode:{value:"random"},
+  speed:{value:0.2},
+  outputType:{value:"number"}
+ },
+
+ inputs:0,
+ outputs:1,
+ icon:"random.png",
+ paletteLabel:"random generator",
+
+ label:function(){
+  return this.name || "random generator"
+ },
+
+ oneditprepare:function(){
+
+  function toggleDecimals(){
+   $("#row-decimals").toggle($("#node-input-numberType").val()==="decimal")
+  }
+
+  function toggleStep(){
+   let isStep=$("#node-input-mode").val()==="step"
+   $("#row-steps").toggle(isStep)
+   $("#row-stepMode").toggle(isStep)
+  }
+
+  function toggleSpeed(){
+   $("#row-speed").toggle($("#node-input-mode").val()==="sine")
+  }
+
+  $("#node-input-numberType").change(toggleDecimals)
+  $("#node-input-mode").change(function(){
+   toggleStep()
+   toggleSpeed()
+  })
+
+  toggleDecimals()
+  toggleStep()
+  toggleSpeed()
+
+ }
+
+})
+
+</script>
+
+<script type="text/x-red" data-template-name="random-generator">
+
+<div class="form-row">
+<label>Nombre</label>
+<input type="text" id="node-input-name">
+</div>
+
+<div class="form-row">
+<label>Valor mínimo</label>
+<input type="number" id="node-input-min">
+</div>
+
+<div class="form-row">
+<label>Valor máximo</label>
+<input type="number" id="node-input-max">
+</div>
+
+<div class="form-row">
+<label>Modo</label>
+<select id="node-input-mode">
+<option value="random">Aleatorio</option>
+<option value="smooth">Suavizado</option>
+<option value="walk">Caminata aleatoria</option>
+<option value="sine">Onda senoidal</option>
+<option value="step">Escalonado</option>
+</select>
+</div>
+
+<div class="form-row">
+<label>Tipo de número</label>
+<select id="node-input-numberType">
+<option value="decimal">Decimal</option>
+<option value="integer">Entero</option>
+</select>
+</div>
+
+<div class="form-row" id="row-decimals">
+<label>Decimales</label>
+<select id="node-input-decimals">
+<option value="1">1</option>
+<option value="2">2</option>
+</select>
+</div>
+
+<div class="form-row" id="row-steps">
+<label>Cantidad de pasos</label>
+<input type="number" id="node-input-steps">
+</div>
+
+<div class="form-row" id="row-stepMode">
+<label>Modo de pasos</label>
+<select id="node-input-stepMode">
+<option value="random">Aleatorio</option>
+<option value="sequential">Secuencial</option>
+</select>
+</div>
+
+<div class="form-row" id="row-speed">
+<label>Velocidad seno</label>
+<input type="number" id="node-input-speed" step="0.05">
+</div>
+
+<div class="form-row">
+<label>Tipo de salida</label>
+<select id="node-input-outputType">
+<option value="number">Número</option>
+<option value="string">Texto</option>
+</select>
+</div>
+
+<div class="form-row">
+<label>Intervalo</label>
+<input type="number" id="node-input-interval" style="width:80px;">
+<select id="node-input-unit" style="width:120px;">
+<option value="seconds">Segundos</option>
+<option value="minutes">Minutos</option>
+</select>
+</div>
+
+</script>

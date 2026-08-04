@@ -1,0 +1,370 @@
+<script type="text/javascript">
+RED.nodes.registerType('module-production', {
+    category: 'mentor-capturer',
+    color: '#87CEFA',
+    defaults: {
+        name: { value: "" },
+
+        device_uuid: { value: "" },
+        device_name: { value: "" },
+        report_interval: { value: 10 },
+
+        sc1_topic: { value: "gpio/4" },
+        sc2_topic: { value: "" },
+        sp_topic:  { value: "" },
+
+        th_sc1_desalineado: { value: 6 },
+        th_sp_desconectado: { value: 6 },
+        th_sc1_blocked_sec: { value: 3 },
+        th_sp_desalineado: { value: 10 },
+        th_sc1_blocked_min: { value: 10 },
+        th_sc2_blocked_min: { value: 10 },
+
+        enable_alarm1: { value: false },
+        enable_alarm2: { value: false },
+        enable_alarm3: { value: true },
+        enable_alarm4: { value: false },
+        enable_alarm5: { value: true },
+        enable_alarm6: { value: false },
+
+        enable_debug: { value: false },
+
+        thresholds: { value: [] }
+    },
+
+    inputs: 1,
+    outputs: 3,
+    icon: "setup.png",
+
+    label: function () {
+        return this.name || "module-production";
+    },
+
+    oneditprepare: function () {
+
+        const IO_MAP = {
+            "IN01": "gpio/4",
+            "IN02": "gpio/17",
+            "IN03": "gpio/27",
+            "IN04": "gpio/22",
+            "IN05": "gpio/5",
+            "IN06": "gpio/6",
+            "IN07": "gpio/13",
+            "IN08": "gpio/19",
+            "IN09": "gpio/26"
+        };
+
+        function fillSelect(id, currentValue, allowNone = false) {
+
+            const select = $("#" + id);
+
+            select.empty();
+
+            if (allowNone) {
+                select.append(
+                    $('<option></option>')
+                        .val("")
+                        .text("none")
+                );
+            }
+
+            Object.keys(IO_MAP).forEach(key => {
+
+                const val = IO_MAP[key];
+
+                const opt = $('<option></option>')
+                    .val(val)
+                    .text(key);
+
+                if (val === currentValue) {
+                    opt.attr("selected", "selected");
+                }
+
+                select.append(opt);
+            });
+        }
+
+        function updateLabel(selectId, labelId) {
+
+            const val = $("#" + selectId).val();
+
+            $("#" + labelId).text(val || "none");
+        }
+
+        fillSelect("node-input-sc1_topic", this.sc1_topic, false);
+        fillSelect("node-input-sc2_topic", this.sc2_topic, true);
+        fillSelect("node-input-sp_topic", this.sp_topic, true);
+
+        updateLabel("node-input-sc1_topic", "label-sc1");
+        updateLabel("node-input-sc2_topic", "label-sc2");
+        updateLabel("node-input-sp_topic", "label-sp");
+
+        $("#node-input-sc1_topic").on("change", function () {
+            updateLabel("node-input-sc1_topic", "label-sc1");
+        });
+
+        $("#node-input-sc2_topic").on("change", function () {
+            updateLabel("node-input-sc2_topic", "label-sc2");
+        });
+
+        $("#node-input-sp_topic").on("change", function () {
+            updateLabel("node-input-sp_topic", "label-sp");
+        });
+
+        // =========================
+        // THRESHOLDS
+        // =========================
+        $("#threshold-list").editableList({
+
+            addItem: function (container, i, opt) {
+
+                opt = opt || {};
+
+                const row = $('<div/>').appendTo(container);
+
+                // TARGET
+                const target = $('<select/>', {
+                    class: "threshold-target",
+                    style: "width:15%; margin-right:5px;"
+                }).appendTo(row);
+
+                [
+                    {v:"sc1", t:"SC1"},
+                    {v:"sc2", t:"SC2"}
+                ].forEach(o=>{
+                    target.append(
+                        $('<option/>')
+                            .val(o.v)
+                            .text(o.t)
+                    );
+                });
+
+                target.val(opt.target || "sc1");
+
+                // NAME
+                $('<input/>', {
+                    type: "text",
+                    class: "threshold-name",
+                    placeholder: "Nombre",
+                    style: "width:40%; margin-right:5px;"
+                })
+                .val(opt.name || "")
+                .appendTo(row);
+
+                // CONDITION
+                const condition = $('<select/>', {
+                    class: "threshold-condition",
+                    style: "width:15%; margin-right:5px;"
+                }).appendTo(row);
+
+                [
+                    {v:"<=", t:"<="},
+                    {v:">=", t:">="},
+                    {v:"==", t:"=="}
+                ].forEach(c=>{
+                    condition.append(
+                        $('<option/>')
+                            .val(c.v)
+                            .text(c.t)
+                    );
+                });
+
+                condition.val(opt.condition || ">=");
+
+                // VALUE
+                $('<input/>', {
+                    type: "number",
+                    class: "threshold-value",
+                    placeholder: "Valor",
+                    style: "width:20%;"
+                })
+                .val(opt.value ?? "")
+                .appendTo(row);
+            },
+
+            removable: true,
+            sortable: true
+        });
+
+        (this.thresholds || []).forEach(t => {
+            $("#threshold-list").editableList('addItem', t);
+        });
+    },
+
+    oneditsave: function () {
+
+        let thresholds = [];
+
+        $("#threshold-list").editableList('items').each(function () {
+
+            const row = $(this);
+
+            thresholds.push({
+                target: row.find(".threshold-target").val(),
+                name: row.find(".threshold-name").val(),
+                condition: row.find(".threshold-condition").val(),
+                value: Number(row.find(".threshold-value").val())
+            });
+        });
+
+        this.thresholds = thresholds;
+    }
+});
+</script>
+
+<script type="text/html" data-template-name="module-production">
+
+    <div class="form-row">
+        <label>Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+
+    <hr>
+    <div class="form-row">
+        <label style="width:100%"><b>CONFIGURACIÓN GENERAL</b></label>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Device UUID</label>
+        <input type="text" id="node-input-device_uuid" style="width:140px">
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Device Name</label>
+        <input type="text" id="node-input-device_name" style="width:140px">
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Intervalo</label>
+        <input type="number" id="node-input-report_interval" style="width:100px">
+        <span style="margin-left:5px">seg</span>
+    </div>
+
+    <hr>
+    <div class="form-row">
+        <label style="width:100%"><b>CONFIGURACION DE SENSORES</b></label>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Conteo 1 (obligatorio)</label>
+        <select id="node-input-sc1_topic" style="width:80px"></select>
+        <span id="label-sc1" style="margin-left:10px; color:#666"></span>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Conteo 2</label>
+        <select id="node-input-sc2_topic" style="width:80px"></select>
+        <span id="label-sc2" style="margin-left:10px; color:#666"></span>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px">Presencia</label>
+        <select id="node-input-sp_topic" style="width:80px"></select>
+        <span id="label-sp" style="margin-left:10px; color:#666"></span>
+    </div>
+
+    <hr>
+    <div class="form-row">
+        <label style="width:100%"><b>CONFIGURACION DE ALARMAS</b></label>
+    </div>
+
+    <!-- ALARMA 1 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>1.- Sensor de conteo desalineado</strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm1"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Pulsos</label>
+    <input type="number" id="node-input-th_sc1_desalineado" style="width:100px">
+</div>
+
+<!-- ALARMA 2 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>2.- Sensor de presencia desconectado</strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm2"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Pulsos</label>
+    <input type="number" id="node-input-th_sp_desconectado" style="width:100px">
+</div>
+
+<!-- ALARMA 3 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>3.- Sensor de conteo bloqueado</strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm3"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Tiempo (segundos)</label>
+    <input type="number" id="node-input-th_sc1_blocked_sec" style="width:100px">
+</div>
+
+<!-- ALARMA 4 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>4.- Sensor de presencia desalineado</strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm4"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Tiempo (minutos)</label>
+    <input type="number" id="node-input-th_sp_desalineado" style="width:100px">
+</div>
+
+<!-- ALARMA 5 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>5.- Falla sensor de conteo 1</strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm5"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Tiempo (minutos)</label>
+    <input type="number" id="node-input-th_sc1_blocked_min" style="width:100px">
+</div>
+
+<!-- ALARMA 6 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong>6.- Falla sensor de conteo 2</strong></label>
+    <label style="font-size:12px; white-space:nowrap;"> 
+        <input type="checkbox" id="node-input-enable_alarm6"> habilitar
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px">Tiempo (minutos)</label>
+    <input type="number" id="node-input-th_sc2_blocked_min" style="width:100px">
+</div>
+
+    <hr>
+    <div class="form-row">
+        <label style="width:100%"><b>CONFIGURACION DE UMBRALES</b></label>
+    </div>
+
+    <div class="form-row">
+        <ol id="threshold-list"></ol>
+    </div>
+    <hr>
+
+<div class="form-row">
+    <label style="width:100%">
+        <b>DIAGNÓSTICO</b>
+    </label>
+</div>
+
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;">
+        <strong>● Habilitar salida de diagnóstico</strong>
+    </label>
+
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_debug">
+        habilitar
+    </label>
+</div>
+
+</script>

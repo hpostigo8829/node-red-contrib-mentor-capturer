@@ -1,0 +1,68 @@
+<style>
+
+.device-report-config{
+ display:flex;
+ gap:6px;
+ align-items:center;
+}
+
+</style>
+
+
+<script type="text/javascript">
+
+RED.nodes.registerType('device-reporter',{
+
+ category:'mentor-capturer',
+ color:'#E1704A',
+
+ defaults:{
+  name:{value:""},
+  interval:{value:60,required:true,validate:RED.validators.number()},
+  unit:{value:"seconds"}
+ },
+
+ inputs:1,
+ outputs:1,
+ icon:"file.png",
+ paletteLabel:"Device Reporter",
+
+ label:function(){
+  return this.name || "Device Reporter"
+ }
+
+})
+
+</script>
+
+
+<script type="text/x-red" data-template-name="device-reporter">
+
+<div class="form-row">
+<label>Name</label>
+<input type="text" id="node-input-name">
+</div>
+
+<div class="form-row">
+<label>Report Interval</label>
+
+<div class="device-report-config">
+
+<input type="number"
+ id="node-input-interval"
+ style="width:90px;"
+ min="1">
+
+<select id="node-input-unit" style="width:130px;">
+
+<option value="seconds">Seconds</option>
+<option value="minutes">Minutes</option>
+<option value="hours">Hours</option>
+
+</select>
+
+</div>
+
+</div>
+
+</script>
