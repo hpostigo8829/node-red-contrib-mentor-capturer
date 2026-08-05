@@ -19,7 +19,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tu-usuario/node-red-contrib-mentor-capturer.git"
+    "url": "https://github.com/hpostigo8829/node-red-contrib-mentor-capturer.git"
+  },
+  "homepage": "https://github.com/hpostigo8829/node-red-contrib-mentor-capturer#readme",
+  "bugs": {
+    "url": "https://github.com/hpostigo8829/node-red-contrib-mentor-capturer/issues"
   },
   "engines": {
     "node": ">=14"
