@@ -27,6 +27,7 @@ npm install node-red-contrib-mentor-capturer
 ## Dependencias
 
 - [`modbus-serial`](https://www.npmjs.com/package/modbus-serial) — usado por los nodos de comunicación Modbus.
+- [`node-red-contrib-modbus`](https://www.npmjs.com/package/node-red-contrib-modbus) — provee el config node "Modbus Client" requerido por el nodo **modbus-variable**.
 
 ## Requisitos
 
