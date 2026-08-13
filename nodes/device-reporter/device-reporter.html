@@ -1,3 +1,4 @@
+
 <style>
 
 .device-report-config{
@@ -64,5 +65,25 @@ RED.nodes.registerType('device-reporter',{
 </div>
 
 </div>
+
+</script>
+
+<script type="text/x-red" data-help-name="device-reporter">
+
+<p>Aggregates readings per device and periodically emits a summary report for each of its variables and thresholds.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Report Interval</dt>
+    <dd>How often a report is generated and sent for each device that has received data (seconds, minutes, or hours).</dd>
+</dl>
+
+<h3>Input</h3>
+<p>Expects the variable message emitted by output 1 of the <code>modbus-variable</code> node, which includes its configured <code>thresholds[]</code>.</p>
+
+<h3>Output</h3>
+<p>On each interval, emits one report per device with per-variable summary statistics
+(sum, count, average, min, max, standard deviation) and, for each threshold, the time
+ranges during which its condition stayed true along with statistics for that range.</p>
 
 </script>

@@ -35,9 +35,10 @@ RED.nodes.registerType('module-production', {
     inputs: 1,
     outputs: 3,
     icon: "setup.png",
+    paletteLabel: "Module Production",
 
     label: function () {
-        return this.name || "module-production";
+        return this.name || "Module Production";
     },
 
     oneditprepare: function () {
@@ -145,7 +146,7 @@ RED.nodes.registerType('module-production', {
                 $('<input/>', {
                     type: "text",
                     class: "threshold-name",
-                    placeholder: "Nombre",
+                    placeholder: "Name",
                     style: "width:40%; margin-right:5px;"
                 })
                 .val(opt.name || "")
@@ -175,7 +176,7 @@ RED.nodes.registerType('module-production', {
                 $('<input/>', {
                     type: "number",
                     class: "threshold-value",
-                    placeholder: "Valor",
+                    placeholder: "Value",
                     style: "width:20%;"
                 })
                 .val(opt.value ?? "")
@@ -221,7 +222,7 @@ RED.nodes.registerType('module-production', {
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>CONFIGURACIÓN GENERAL</b></label>
+        <label style="width:100%"><b>GENERAL CONFIGURATION</b></label>
     </div>
 
     <div class="form-row">
@@ -235,114 +236,114 @@ RED.nodes.registerType('module-production', {
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Intervalo</label>
+        <label style="width:180px">Interval</label>
         <input type="number" id="node-input-report_interval" style="width:100px">
-        <span style="margin-left:5px">seg</span>
+        <span style="margin-left:5px">sec</span>
     </div>
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>CONFIGURACION DE SENSORES</b></label>
+        <label style="width:100%"><b>SENSOR CONFIGURATION</b></label>
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Conteo 1 (obligatorio)</label>
+        <label style="width:180px">Count 1 (required)</label>
         <select id="node-input-sc1_topic" style="width:80px"></select>
         <span id="label-sc1" style="margin-left:10px; color:#666"></span>
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Conteo 2</label>
+        <label style="width:180px">Count 2</label>
         <select id="node-input-sc2_topic" style="width:80px"></select>
         <span id="label-sc2" style="margin-left:10px; color:#666"></span>
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Presencia</label>
+        <label style="width:180px">Presence</label>
         <select id="node-input-sp_topic" style="width:80px"></select>
         <span id="label-sp" style="margin-left:10px; color:#666"></span>
     </div>
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>CONFIGURACION DE ALARMAS</b></label>
+        <label style="width:100%"><b>ALARM CONFIGURATION</b></label>
     </div>
 
-    <!-- ALARMA 1 -->
+    <!-- ALARM 1 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>1.- Sensor de conteo desalineado</strong></label>
+    <label style="white-space:nowrap;"><strong>1.- Misaligned count sensor</strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm1"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm1"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Pulsos</label>
+    <label style="width:180px">Pulses</label>
     <input type="number" id="node-input-th_sc1_desalineado" style="width:100px">
 </div>
 
-<!-- ALARMA 2 -->
+<!-- ALARM 2 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>2.- Sensor de presencia desconectado</strong></label>
+    <label style="white-space:nowrap;"><strong>2.- Presence sensor disconnected</strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm2"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm2"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Pulsos</label>
+    <label style="width:180px">Pulses</label>
     <input type="number" id="node-input-th_sp_desconectado" style="width:100px">
 </div>
 
-<!-- ALARMA 3 -->
+<!-- ALARM 3 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>3.- Sensor de conteo bloqueado</strong></label>
+    <label style="white-space:nowrap;"><strong>3.- Blocked count sensor</strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm3"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm3"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Tiempo (segundos)</label>
+    <label style="width:180px">Time (seconds)</label>
     <input type="number" id="node-input-th_sc1_blocked_sec" style="width:100px">
 </div>
 
-<!-- ALARMA 4 -->
+<!-- ALARM 4 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>4.- Sensor de presencia desalineado</strong></label>
+    <label style="white-space:nowrap;"><strong>4.- Misaligned presence sensor</strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm4"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm4"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Tiempo (minutos)</label>
+    <label style="width:180px">Time (minutes)</label>
     <input type="number" id="node-input-th_sp_desalineado" style="width:100px">
 </div>
 
-<!-- ALARMA 5 -->
+<!-- ALARM 5 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>5.- Falla sensor de conteo 1</strong></label>
+    <label style="white-space:nowrap;"><strong>5.- Count sensor 1 failure</strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm5"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm5"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Tiempo (minutos)</label>
+    <label style="width:180px">Time (minutes)</label>
     <input type="number" id="node-input-th_sc1_blocked_min" style="width:100px">
 </div>
 
-<!-- ALARMA 6 -->
+<!-- ALARM 6 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>6.- Falla sensor de conteo 2</strong></label>
+    <label style="white-space:nowrap;"><strong>6.- Count sensor 2 failure</strong></label>
     <label style="font-size:12px; white-space:nowrap;"> 
-        <input type="checkbox" id="node-input-enable_alarm6"> habilitar
+        <input type="checkbox" id="node-input-enable_alarm6"> enable
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Tiempo (minutos)</label>
+    <label style="width:180px">Time (minutes)</label>
     <input type="number" id="node-input-th_sc2_blocked_min" style="width:100px">
 </div>
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>CONFIGURACION DE UMBRALES</b></label>
+        <label style="width:100%"><b>THRESHOLD CONFIGURATION</b></label>
     </div>
 
     <div class="form-row">
@@ -352,19 +353,66 @@ RED.nodes.registerType('module-production', {
 
 <div class="form-row">
     <label style="width:100%">
-        <b>DIAGNÓSTICO</b>
+        <b>DIAGNOSTICS</b>
     </label>
 </div>
 
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
     <label style="white-space:nowrap;">
-        <strong>● Habilitar salida de diagnóstico</strong>
+        <strong>● Enable diagnostics output</strong>
     </label>
 
     <label style="font-size:12px; white-space:nowrap;">
         <input type="checkbox" id="node-input-enable_debug">
-        habilitar
+        enable
     </label>
 </div>
+
+</script>
+
+<script type="text/html" data-help-name="module-production">
+
+<p>Monitors count and presence sensors of a production module (via GPIOs), evaluates 6 predefined operation alarms
+(misalignment, blockage, sensor failure, disconnection), evaluates configurable thresholds on the counts,
+and emits a periodic production report.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>General configuration</dt>
+    <dd><code>Device UUID</code>, <code>Device Name</code>, report interval (seconds).</dd>
+    <dt>Sensor configuration</dt>
+    <dd>GPIO input for Count 1 (required), Count 2 (optional), and Presence (optional).</dd>
+    <dt>Alarm configuration</dt>
+    <dd>6 predefined alarms, each with an enable checkbox and its time/pulse threshold:
+    1. Misaligned count sensor · 2. Presence sensor disconnected · 3. Blocked count sensor ·
+    4. Misaligned presence sensor · 5. Count sensor 1 failure · 6. Count sensor 2 failure.</dd>
+    <dt>Threshold configuration</dt>
+    <dd>Additional user-defined thresholds on SC1 or SC2 (name, condition <code><=</code>/<code>>=</code>/<code>==</code>, value).</dd>
+    <dt>Diagnostics</dt>
+    <dd>Enables an extra output with the node's full internal state, for debugging.</dd>
+</dl>
+
+<h3>Outputs</h3>
+<ol class="node-ports">
+    <li>Production report
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Every report interval, a message with the counts, state, and evaluated thresholds
+            (<code>condition_met</code>) for each sensor.</dd>
+        </dl>
+    </li>
+    <li>Alarms
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Emitted whenever one of the 6 predefined (enabled) alarms changes state (<code>state: 1</code>/<code>0</code>).</dd>
+        </dl>
+    </li>
+    <li>Diagnostics
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Only if enabled — the node's full internal state (context, counts, last states) for debugging.</dd>
+        </dl>
+    </li>
+</ol>
 
 </script>

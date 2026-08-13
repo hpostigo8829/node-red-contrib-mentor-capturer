@@ -1,0 +1,70 @@
+<script type="text/javascript">
+    RED.nodes.registerType('alarm-generator', {
+        category: 'mentor-capturer',
+        color: '#F5C300',
+        defaults: {
+            name:       { value: "" },
+            alarm_name: { value: "", required: true },
+            alarm_id:   { value: 1, validate: RED.validators.number() }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-exclamation-triangle",
+        paletteLabel: "Alarm Generator",
+        label: function () {
+            return this.name || this.alarm_name || "Alarm Generator";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="alarm-generator">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Node name (optional)">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-alarm_name"><i class="fa fa-bell"></i> Alarm name</label>
+        <input type="text" id="node-input-alarm_name" placeholder="Must match the threshold's name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-alarm_id"><i class="fa fa-hashtag"></i> Alarm ID</label>
+        <input type="number" id="node-input-alarm_id" placeholder="1" style="width:80px">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="alarm-generator">
+    <p>Generates status alarms (1/0) from the <code>thresholds</code> emitted by the
+    <code>module-production</code> or <code>modbus-variable</code> nodes.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Alarm name</dt>
+        <dd>Name to look for inside <code>thresholds[].name</code>. If left empty, the node emits nothing.</dd>
+        <dt>Alarm ID</dt>
+        <dd>Value of <code>alarm_id</code> in the emitted message. Defaults to <code>1</code> if not set.</dd>
+    </dl>
+
+    <h3>Input</h3>
+    <p>Accepts two message formats:</p>
+    <ul>
+        <li><code>msg.variables[].thresholds[]</code> (report from <code>module-production</code>)</li>
+        <li><code>msg.thresholds[]</code> directly (single variable from <code>modbus-variable</code>)</li>
+    </ul>
+
+    <h3>Output</h3>
+    <p>Only emits on state transition (not on every message):</p>
+    <pre>{
+  "device_uuid": "...",
+  "device_name": "...",
+  "alarm_id": 1,
+  "alarm_name": "...",
+  "state": 1,
+  "value1": 50,
+  "value2": 200,
+  "unit": "V",
+  "timestamp": 1786308200000
+}</pre>
+    <p><code>value1</code>/<code>value2</code> are the threshold's condition values, not the instantaneous reading.</p>
+</script>

@@ -172,7 +172,8 @@ if(!devices[device_id]){
            average:round2(avg),
            max:round2(thr.max),
            min:round2(thr.min),
-           standard_deviation:round2(std)
+           standard_deviation:round2(std),
+           sum_squares:round2(thr.sum_sq)
 
         })
       }
@@ -241,7 +242,8 @@ function generateReport(){
           average:round2(avgR),
           max:round2(thr.max),
           min:round2(thr.min),
-          standard_deviation:round2(stdR)
+          standard_deviation:round2(stdR),
+          sum_squares:round2(thr.sum_sq)
 
          })
        }
@@ -285,7 +287,8 @@ function generateReport(){
      average:round2(avg),
      max:round2(v.max),
      min:round2(v.min),
-     standard_deviation:round2(std)
+     standard_deviation:round2(std),
+     sum_squares:round2(v.sum_sq)
 
     },
 

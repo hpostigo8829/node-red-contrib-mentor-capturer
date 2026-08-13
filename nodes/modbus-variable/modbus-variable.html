@@ -488,3 +488,49 @@ node.sequences.push({
 </div>
 
 </script>
+
+<script type="text/x-red" data-help-name="modbus-variable">
+
+<p>Reads variables from a Modbus server according to the configured sequences (address, function, data type) and emits each variable's value, along with its configured thresholds and communication alarms.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Device UUID / Device Name</dt>
+    <dd>Device identifiers, included in every emitted message.</dd>
+    <dt>Unit ID</dt>
+    <dd>Modbus slave ID.</dd>
+    <dt>Modbus Server</dt>
+    <dd>Configured Modbus server (<code>modbus-client</code> node).</dd>
+    <dt>Sequences</dt>
+    <dd>List of variables to read, each with Name, Unit, Type (<code>instantaneous</code>, <code>counter</code>, <code>state</code>),
+    Function (FC1–FC4), Datatype, Byte Order, Word Order, Scale, and Address.
+    Each sequence can also define optional Thresholds (name, condition, value/value2, priority),
+    which are included in the output message so another node (such as <code>alarm-generator</code>) can evaluate value alarms.</dd>
+</dl>
+
+<h3>Outputs</h3>
+<ol class="node-ports">
+    <li>Variable
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">number | boolean</span></dt>
+            <dd>One message per read sequence, with <code>device_uuid</code>, <code>device_name</code>, <code>variable_name</code>,
+            the read and scaled value, <code>unit</code>, <code>type</code>, <code>thresholds[]</code>, and <code>responseBuffer</code>.</dd>
+        </dl>
+    </li>
+    <li>Communication alarms
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Connection alarms (<code>DEVICE OFFLINE</code>, <code>READ TIMEOUT</code>, <code>RTU CRC ERROR</code>) whenever a
+            Modbus server issue is detected or resolved.</dd>
+        </dl>
+    </li>
+    <li>Cycle summary
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Sent at the end of each read cycle, with <code>variables_total</code>, <code>variables_ok</code>,
+            <code>variables_error</code>, <code>duration_ms</code>, and <code>status</code> (<code>ok</code> / <code>partial</code> / <code>failed</code>).</dd>
+        </dl>
+    </li>
+</ol>
+
+</script>

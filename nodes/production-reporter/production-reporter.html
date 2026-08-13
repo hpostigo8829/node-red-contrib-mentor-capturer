@@ -24,10 +24,10 @@ RED.nodes.registerType('production-reporter',{
  inputs:1,
  outputs:1,
  icon:"file.png",
- paletteLabel:"production reporter",
+ paletteLabel:"Production Reporter",
 
  label:function(){
-  return this.name || "production reporter"
+  return this.name || "Production Reporter"
  }
 
 })
@@ -66,31 +66,31 @@ RED.nodes.registerType('production-reporter',{
 <script type="text/x-red" data-help-name="production-reporter">
 
 <p>
-Genera reportes de producción agregando datos de sensores y eventos de alarmas en un intervalo de tiempo configurable.
+Generates production reports by aggregating sensor data and alarm events over a configurable time interval.
 </p>
 
-<h3>Entradas</h3>
+<h3>Input</h3>
 <ul>
-<li><b>Sensores:</b> Mensajes con <code>msg.variables</code></li>
-<li><b>Alarmas:</b> Mensajes con <code>msg.payload.alarm_name</code></li>
+<li><b>Sensors:</b> Messages with <code>msg.variables</code></li>
+<li><b>Alarms:</b> Messages with <code>msg.payload.alarm_name</code></li>
 </ul>
 
-<h3>Salida</h3>
+<h3>Output</h3>
 <p>
-Emite un reporte consolidado con:
+Emits a consolidated report with:
 </p>
 <ul>
 <li><code>device_uuid</code></li>
 <li><code>device_name</code></li>
-<li><code>variables</code> (conteo acumulado)</li>
-<li><code>alarms</code> (rangos de activación)</li>
+<li><code>variables</code> (accumulated count)</li>
+<li><code>alarms</code> (activation ranges)</li>
 <li><code>start_range</code> / <code>end_range</code></li>
 </ul>
 
-<h3>Configuración</h3>
+<h3>Configuration</h3>
 <p>
-Define cada cuánto tiempo se genera el reporte:
-segundos, minutos o horas.
+Sets how often the report is generated:
+seconds, minutes, or hours.
 </p>
 
 </script>

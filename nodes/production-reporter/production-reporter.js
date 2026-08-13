@@ -39,6 +39,11 @@ function getStdDev(sum,sum_sq,count){
  return Math.sqrt((sum_sq/count)-(mean*mean))
 }
 
+function round2(n){
+ if(n===null||n===undefined||isNaN(n)) return n
+ return Math.round((n+Number.EPSILON)*100)/100
+}
+
 // =========================
 // 🔹 INPUT
 // =========================
@@ -298,12 +303,13 @@ function generateReport(){
       end_threshold_range:
        Math.min(t.end,end_range),
 
-      sum:t.sum,
+      sum:round2(t.sum),
       samples_count:t.count,
-      average:t_avg,
-      max:t.max,
-      min:t.min,
-      standard_deviation:t_std
+      average:round2(t_avg),
+      max:round2(t.max),
+      min:round2(t.min),
+      standard_deviation:round2(t_std),
+      sum_squares:round2(t.sum_sq)
 
      })
 
@@ -349,12 +355,13 @@ function generateReport(){
 
       end_threshold_range:end_range,
 
-      sum:t.sum,
+      sum:round2(t.sum),
       samples_count:t.count,
-      average:t_avg,
-      max:t.max,
-      min:t.min,
-      standard_deviation:t_std
+      average:round2(t_avg),
+      max:round2(t.max),
+      min:round2(t.min),
+      standard_deviation:round2(t_std),
+      sum_squares:round2(t.sum_sq)
 
      })
 
@@ -373,12 +380,13 @@ function generateReport(){
     type:v.type,
 
     summary:{
-     sum:v.sum,
+     sum:round2(v.sum),
      samples_count:v.count,
-     average:avg,
-     max:v.max,
-     min:v.min,
-     standard_deviation:std
+     average:round2(avg),
+     max:round2(v.max),
+     min:round2(v.min),
+     standard_deviation:round2(std),
+     sum_squares:round2(v.sum_sq)
     },
 
     thresholds:thresholds

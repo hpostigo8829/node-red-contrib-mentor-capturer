@@ -58,8 +58,31 @@ RED.nodes.registerType('modbus-registers-to-number',{
     inputs: 1,
     outputs: 1,
     icon: "modbus.png",
+    paletteLabel: "Modbus Registers To Number",
     label: function() {
-        return this.name || "modbus-registers-to-number";
+        return this.name || "Modbus Registers To Number";
     }
 });
+</script>
+
+<script type="text/html" data-help-name="modbus-registers-to-number">
+
+<p>Converts an array of Modbus registers (16-bit) into a number, based on the configured data type, byte order, and word order.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Data Type</dt>
+    <dd>Output numeric type (<code>INT16</code>, <code>UINT16</code>, <code>INT32</code>, <code>UINT32</code>, <code>FLOAT32</code>, <code>INT64</code>, <code>UINT64</code>, <code>FLOAT64</code>).</dd>
+    <dt>Byte Order</dt>
+    <dd>Byte order within the value (Big Endian / Little Endian) — applies to 32-bit and 64-bit types.</dd>
+    <dt>Word Order</dt>
+    <dd>Order of the registers when the value spans more than one (Normal / Swap).</dd>
+</dl>
+
+<h3>Input</h3>
+<p><code>msg.payload</code> must be an array of registers (16-bit integers), such as the ones returned by a Modbus read.</p>
+
+<h3>Output</h3>
+<p><code>msg.payload</code> is replaced with the resulting number, based on the configured Data Type.</p>
+
 </script>

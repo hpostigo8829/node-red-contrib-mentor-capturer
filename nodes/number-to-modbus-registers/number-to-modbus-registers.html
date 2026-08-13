@@ -58,8 +58,33 @@ RED.nodes.registerType('number-to-modbus-registers',{
     inputs: 1,
     outputs: 1,
     icon: "modbus.png",
+    paletteLabel: "Number To Modbus Registers",
     label: function() {
-        return this.name || "number-to-modbus";
+        return this.name || "Number To Modbus Registers";
     }
 });
+</script>
+
+<script type="text/html" data-help-name="number-to-modbus-registers">
+
+<p>Converts a number into an array of Modbus registers (16-bit), based on the configured data type,
+byte order, and word order — the reverse operation of <code>modbus-registers-to-number</code>.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Data Type</dt>
+    <dd>Input numeric type (<code>INT16</code>, <code>UINT16</code>, <code>INT32</code>, <code>UINT32</code>, <code>FLOAT32</code>, <code>INT64</code>, <code>UINT64</code>, <code>FLOAT64</code>).</dd>
+    <dt>Byte Order</dt>
+    <dd>Byte order within the value (Big Endian / Little Endian).</dd>
+    <dt>Word Order</dt>
+    <dd>Order of the registers when the value spans more than one (Normal / Swap).</dd>
+</dl>
+
+<h3>Input</h3>
+<p><code>msg.payload</code> must be a number (or a numeric-convertible value) to encode.</p>
+
+<h3>Output</h3>
+<p><code>msg.payload</code> is replaced with the resulting array of 16-bit registers. <code>msg.tipo</code>,
+<code>msg.byteOrder</code>, and <code>msg.wordOrder</code> are also added with the configuration used.</p>
+
 </script>

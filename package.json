@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-mentor-capturer",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Toolkit for Node-RED: Modbus, production reporting, random generation, and device reporting nodes",
   "keywords": [
     "node-red",
@@ -13,7 +13,8 @@
     "iot",
     "historian",
     "counter",
-    "device"
+    "device",
+    "alarm"
   ],
   "author": "Hugo Postigo",
   "license": "MIT",
@@ -37,7 +38,8 @@
       "number-to-modbus-registers": "nodes/number-to-modbus-registers/number-to-modbus-registers.js",
       "module-production": "nodes/module-production/module-production.js",
       "production-reporter": "nodes/production-reporter/production-reporter.js",
-      "random-generator": "nodes/random-generator/random-generator.js"
+      "random-generator": "nodes/random-generator/random-generator.js",
+      "alarm-generator": "nodes/alarm-generator/alarm-generator.js"
     }
   },
   "dependencies": {

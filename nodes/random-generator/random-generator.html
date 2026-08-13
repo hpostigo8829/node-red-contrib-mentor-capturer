@@ -23,10 +23,10 @@ RED.nodes.registerType('random-generator',{
  inputs:0,
  outputs:1,
  icon:"random.png",
- paletteLabel:"random generator",
+ paletteLabel:"Random Generator",
 
  label:function(){
-  return this.name || "random generator"
+  return this.name || "Random Generator"
  },
 
  oneditprepare:function(){
@@ -64,41 +64,41 @@ RED.nodes.registerType('random-generator',{
 <script type="text/x-red" data-template-name="random-generator">
 
 <div class="form-row">
-<label>Nombre</label>
+<label>Name</label>
 <input type="text" id="node-input-name">
 </div>
 
 <div class="form-row">
-<label>Valor mínimo</label>
+<label>Min value</label>
 <input type="number" id="node-input-min">
 </div>
 
 <div class="form-row">
-<label>Valor máximo</label>
+<label>Max value</label>
 <input type="number" id="node-input-max">
 </div>
 
 <div class="form-row">
-<label>Modo</label>
+<label>Mode</label>
 <select id="node-input-mode">
-<option value="random">Aleatorio</option>
-<option value="smooth">Suavizado</option>
-<option value="walk">Caminata aleatoria</option>
-<option value="sine">Onda senoidal</option>
-<option value="step">Escalonado</option>
+<option value="random">Random</option>
+<option value="smooth">Smooth</option>
+<option value="walk">Random Walk</option>
+<option value="sine">Sine Wave</option>
+<option value="step">Step</option>
 </select>
 </div>
 
 <div class="form-row">
-<label>Tipo de número</label>
+<label>Number Type</label>
 <select id="node-input-numberType">
 <option value="decimal">Decimal</option>
-<option value="integer">Entero</option>
+<option value="integer">Integer</option>
 </select>
 </div>
 
 <div class="form-row" id="row-decimals">
-<label>Decimales</label>
+<label>Decimals</label>
 <select id="node-input-decimals">
 <option value="1">1</option>
 <option value="2">2</option>
@@ -106,38 +106,78 @@ RED.nodes.registerType('random-generator',{
 </div>
 
 <div class="form-row" id="row-steps">
-<label>Cantidad de pasos</label>
+<label>Step Count</label>
 <input type="number" id="node-input-steps">
 </div>
 
 <div class="form-row" id="row-stepMode">
-<label>Modo de pasos</label>
+<label>Step Mode</label>
 <select id="node-input-stepMode">
-<option value="random">Aleatorio</option>
-<option value="sequential">Secuencial</option>
+<option value="random">Random</option>
+<option value="sequential">Sequential</option>
 </select>
 </div>
 
 <div class="form-row" id="row-speed">
-<label>Velocidad seno</label>
+<label>Sine Speed</label>
 <input type="number" id="node-input-speed" step="0.05">
 </div>
 
 <div class="form-row">
-<label>Tipo de salida</label>
+<label>Output Type</label>
 <select id="node-input-outputType">
-<option value="number">Número</option>
-<option value="string">Texto</option>
+<option value="number">Number</option>
+<option value="string">String</option>
 </select>
 </div>
 
 <div class="form-row">
-<label>Intervalo</label>
+<label>Interval</label>
 <input type="number" id="node-input-interval" style="width:80px;">
 <select id="node-input-unit" style="width:120px;">
-<option value="seconds">Segundos</option>
-<option value="minutes">Minutos</option>
+<option value="seconds">Seconds</option>
+<option value="minutes">Minutes</option>
 </select>
 </div>
+
+</script>
+
+<script type="text/x-red" data-help-name="random-generator">
+
+<p>Generates simulated numeric values at a configurable interval, using different variation modes
+(random, smooth, random walk, sine wave, step). Useful for simulating sensors or testing flows
+without real hardware.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Min value / Max value</dt>
+    <dd>Range of the generated values.</dd>
+    <dt>Mode</dt>
+    <dd>How the value varies:
+        <ul>
+            <li><b>Random</b>: uniform random value within the range on each interval.</li>
+            <li><b>Smooth</b>: gradually moves toward a new random target (no sudden jumps).</li>
+            <li><b>Random Walk</b>: small cumulative random steps around the current value.</li>
+            <li><b>Sine Wave</b>: oscillates following a sine curve between min and max, with a configurable speed.</li>
+            <li><b>Step</b>: cycles through a fixed set of intermediate values (random or sequential).</li>
+        </ul>
+    </dd>
+    <dt>Number Type</dt>
+    <dd><code>Decimal</code> (with configurable decimal count) or <code>Integer</code>.</dd>
+    <dt>Step Count / Step Mode</dt>
+    <dd>Only with Step mode — how many intermediate values, and whether they're cycled in order or at random.</dd>
+    <dt>Sine Speed</dt>
+    <dd>Only with Sine Wave mode — how fast it oscillates.</dd>
+    <dt>Output Type</dt>
+    <dd><code>Number</code> or <code>String</code>.</dd>
+    <dt>Interval</dt>
+    <dd>How often a new value is generated (seconds or minutes).</dd>
+</dl>
+
+<h3>Input</h3>
+<p>None — the node has no inputs; it generates values on its own based on the configured interval.</p>
+
+<h3>Output</h3>
+<p><code>msg.payload</code> with the generated value, according to the configured Number Type and Output Type.</p>
 
 </script>
