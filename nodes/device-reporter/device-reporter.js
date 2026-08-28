@@ -311,7 +311,7 @@ function generateReport(){
 
   }
 
-  node.send(report)
+  node.send({ payload: report })
 
  }
 

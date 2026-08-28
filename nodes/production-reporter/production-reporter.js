@@ -36,7 +36,9 @@ let start_range=Math.floor(Date.now()/1000)
 function getStdDev(sum,sum_sq,count){
  if(count<=1) return 0
  let mean=sum/count
- return Math.sqrt((sum_sq/count)-(mean*mean))
+ let variance=(sum_sq/count)-(mean*mean)
+ if(variance<0) variance=0
+ return Math.sqrt(variance)
 }
 
 function round2(n){
@@ -491,7 +493,7 @@ function generateReport(){
 
   }
 
-  node.send(report)
+  node.send({ payload: report })
 
  }
 
