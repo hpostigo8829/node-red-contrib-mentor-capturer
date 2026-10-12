@@ -1,70 +1,258 @@
+<script type="text/javascript" src="resources/node-red-contrib-mentor-capturer/naturaleza-variable.js"></script>
+
 <script type="text/javascript">
+
+(function () {
+
+    // Otro alarm-generator del espacio de trabajo con el mismo alarm_uuid: una
+    // alarma copiada sin pulsar «Generar» (dos alarmas distintas con la misma
+    // identidad se pisarían en el histórico).
+    function alarmUuidRepetido(nodo, uuid) {
+        var repetido = false;
+        RED.nodes.eachNode(function (n) {
+            if (n.type === "alarm-generator" && n.id !== nodo.id && n.alarm_uuid === uuid) repetido = true;
+        });
+        return repetido;
+    }
+
+    function esV4(v) {
+        if (typeof MentorNaturalezaVariable === "undefined") return true;
+        return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v));
+    }
+
+    function esNumeroDesde(v, minimo) {
+        if (v === "" || v === undefined || v === null) return true;
+        var n = Number(v);
+        return Number.isFinite(n) && n >= minimo;
+    }
+
     RED.nodes.registerType('alarm-generator', {
         category: 'mentor-capturer',
         color: '#F5C300',
         defaults: {
-            name:       { value: "" },
-            alarm_name: { value: "", required: true },
-            alarm_id:   { value: 1, validate: RED.validators.number() }
+            name:           { value: "" },
+            variable_uuid:  { value: "", required: true, validate: function (v) { return esV4(v); } },
+            threshold_name: { value: "", required: true },
+            alarm_name:     { value: "", required: true },
+            alarm_uuid:     {
+                value: "",
+                required: true,
+                validate: function (v) { return esV4(v) && !alarmUuidRepetido(this, v); }
+            },
+            severity:       { value: "warning" },
+            activate_s:     { value: 5, validate: function (v) { return esNumeroDesde(v, 1); } },
+            release_s:      { value: 10, validate: function (v) { return esNumeroDesde(v, 1); } },
+            release_margin: { value: 0, validate: function (v) { return esNumeroDesde(v, 0); } }
         },
         inputs: 1,
         outputs: 1,
         icon: "font-awesome/fa-exclamation-triangle",
-        paletteLabel: "Alarm Generator",
+        paletteLabel: function () { return this._("alarm-generator.palette"); },
         label: function () {
-            return this.name || this.alarm_name || "Alarm Generator";
+            return this.name || this.alarm_name || this._("alarm-generator.palette");
+        },
+
+        oneditprepare: function () {
+
+            var node = this;
+            var reglas = MentorNaturalezaVariable;
+
+            // La alarma es de este nodo para siempre: el uuid se genera una vez.
+            if (!$("#node-input-alarm_uuid").val()) {
+                $("#node-input-alarm_uuid").val(reglas.nuevoUuidV4());
+            }
+
+            $("#btn-generar-alarm-uuid").on("click", function (e) {
+                e.preventDefault();
+                $("#node-input-alarm_uuid").val(reglas.nuevoUuidV4());
+            });
+
+            // ---- origen: el nodo conectado a la entrada por un cable directo ----
+            // Se lee la configuración en memoria del editor, así que se ven los
+            // cambios aún sin desplegar. Con link in/out, function o dos orígenes no
+            // se detecta nada: aviso y campos manuales.
+            function variablesDelOrigen() {
+
+                var enlaces = RED.nodes.filterLinks({ target: node });
+                if (enlaces.length !== 1) return null;
+
+                var origen = enlaces[0].source;
+                if (!origen || enlaces[0].sourcePort !== 0) return null;
+
+                if (origen.type === "modbus-variable") {
+                    return {
+                        nodo: origen,
+                        variables: (origen.sequences || []).filter(function (s) { return s.variable_uuid; }).map(function (s) {
+                            return { uuid: s.variable_uuid, nombre: s.name, unidad: s.unit || "", umbrales: s.thresholds || [] };
+                        })
+                    };
+                }
+
+                if (origen.type === "module-production") {
+                    var sensores = ["sc1"];
+                    if (origen.sc2_topic) sensores.push("sc2");
+                    return {
+                        nodo: origen,
+                        variables: sensores.map(function (sensor) {
+                            var v = reglas.variableDeSensor(origen, sensor);
+                            return { uuid: v.variable_uuid, nombre: v.name, unidad: v.unit || "", umbrales: v.thresholds || [] };
+                        }).filter(function (v) { return v.uuid; })
+                    };
+                }
+
+                return null;
+            }
+
+            var origen = variablesDelOrigen();
+            var selVariable = $("#mac-variable");
+            var selUmbral = $("#mac-umbral");
+            var unidad = $("#mac-unidad");
+
+            function descripcionUmbral(u) {
+                var texto = u.name + " · " + u.condition + " " + u.value;
+                if (u.condition === "between") texto += " – " + u.value2;
+                return texto;
+            }
+
+            function variableElegida() {
+                if (!origen) return null;
+                var uuid = selVariable.val();
+                return origen.variables.filter(function (v) { return v.uuid === uuid; })[0] || null;
+            }
+
+            // Activar y apagar menores que la cadencia de la variable: el nodo solo
+            // ve una lectura por ciclo, así que el retardo real no baja de ahí.
+            function avisoCadencia() {
+                var aviso = $("#mac-aviso-cadencia").hide();
+                if (!origen || origen.nodo.type !== "modbus-variable") return;
+                var periodo = Number(origen.nodo.period_ms) || 1000;
+                var activar = Number($("#node-input-activate_s").val()) * 1000;
+                var apagar = Number($("#node-input-release_s").val()) * 1000;
+                if ((activar && activar < periodo) || (apagar && apagar < periodo)) aviso.show();
+            }
+
+            function rellenarUmbrales() {
+                var v = variableElegida();
+                selUmbral.empty();
+                unidad.text(v ? v.unidad : "");
+                if (!v) return;
+                v.umbrales.forEach(function (u) {
+                    selUmbral.append($("<option/>").val(u.name).text(descripcionUmbral(u)));
+                });
+                var guardado = $("#node-input-threshold_name").val();
+                if (v.umbrales.some(function (u) { return u.name === guardado; })) selUmbral.val(guardado);
+                $("#node-input-threshold_name").val(selUmbral.val() || "");
+                avisoCadencia();
+            }
+
+            if (origen) {
+
+                $("#mac-origen-detectado").text(node._("alarm-generator.label.origin") + ": "
+                    + (origen.nodo.name || origen.nodo.device_name || origen.nodo.type) + " (" + origen.nodo.type + ")");
+                $("#mac-origen-manual, #mac-aviso-origen").hide();
+
+                origen.variables.forEach(function (v) {
+                    selVariable.append($("<option/>").val(v.uuid).text(v.nombre + (v.unidad ? " (" + v.unidad + ")" : "")));
+                });
+
+                var guardada = $("#node-input-variable_uuid").val();
+                if (origen.variables.some(function (v) { return v.uuid === guardada; })) selVariable.val(guardada);
+                $("#node-input-variable_uuid").val(selVariable.val() || "");
+
+                selVariable.on("change", function () {
+                    $("#node-input-variable_uuid").val(selVariable.val() || "");
+                    $("#node-input-threshold_name").val("");
+                    rellenarUmbrales();
+                });
+                selUmbral.on("change", function () { $("#node-input-threshold_name").val(selUmbral.val() || ""); });
+                $("#node-input-activate_s, #node-input-release_s").on("input change", avisoCadencia);
+
+                rellenarUmbrales();
+
+            } else {
+                $("#mac-origen-auto").hide();
+                $("#mac-aviso-origen").show();
+            }
+        },
+
+        oneditsave: function () {
+            $("#node-input-alarm_uuid").val(MentorNaturalezaVariable.normalizarUuid($("#node-input-alarm_uuid").val()));
+            $("#node-input-variable_uuid").val(MentorNaturalezaVariable.normalizarUuid($("#node-input-variable_uuid").val()));
         }
     });
+
+})();
+
 </script>
 
 <script type="text/html" data-template-name="alarm-generator">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Node name (optional)">
+        <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="node-red:common.label.name"></span></label>
+        <input type="text" id="node-input-name" data-i18n="[placeholder]node-red:common.label.name">
+    </div>
+
+    <div id="mac-origen-auto">
+        <div id="mac-origen-detectado" class="form-tips" style="margin-bottom:8px"></div>
+        <div class="form-row">
+            <label for="mac-variable"><i class="fa fa-cube"></i> <span data-i18n="alarm-generator.label.variable"></span></label>
+            <select id="mac-variable" style="width:60%"></select>
+        </div>
+        <div class="form-row">
+            <label for="mac-umbral"><i class="fa fa-sliders"></i> <span data-i18n="alarm-generator.label.threshold"></span></label>
+            <select id="mac-umbral" style="width:60%"></select>
+        </div>
+    </div>
+
+    <div id="mac-aviso-origen" class="form-tips" style="display:none;margin-bottom:8px" data-i18n="alarm-generator.tips.noOrigin"></div>
+
+    <div id="mac-origen-manual">
+        <div class="form-row">
+            <label for="node-input-variable_uuid"><i class="fa fa-cube"></i> <span data-i18n="alarm-generator.label.variableUuid"></span></label>
+            <input type="text" id="node-input-variable_uuid" style="width:60%">
+        </div>
+        <div class="form-row">
+            <label for="node-input-threshold_name"><i class="fa fa-sliders"></i> <span data-i18n="alarm-generator.label.thresholdName"></span></label>
+            <input type="text" id="node-input-threshold_name" style="width:60%">
+        </div>
     </div>
 
     <div class="form-row">
-        <label for="node-input-alarm_name"><i class="fa fa-bell"></i> Alarm name</label>
-        <input type="text" id="node-input-alarm_name" placeholder="Must match the threshold's name">
+        <label for="node-input-alarm_name"><i class="fa fa-bell"></i> <span data-i18n="alarm-generator.label.alarmName"></span></label>
+        <input type="text" id="node-input-alarm_name">
     </div>
 
     <div class="form-row">
-        <label for="node-input-alarm_id"><i class="fa fa-hashtag"></i> Alarm ID</label>
-        <input type="number" id="node-input-alarm_id" placeholder="1" style="width:80px">
+        <label for="node-input-alarm_uuid"><i class="fa fa-hashtag"></i> alarm_uuid</label>
+        <input type="text" id="node-input-alarm_uuid" style="width:55%">
+        <button type="button" id="btn-generar-alarm-uuid" class="red-ui-button" style="margin-left:6px" data-i18n="alarm-generator.label.generate"></button>
     </div>
-</script>
 
-<script type="text/html" data-help-name="alarm-generator">
-    <p>Generates status alarms (1/0) from the <code>thresholds</code> emitted by the
-    <code>module-production</code> or <code>modbus-variable</code> nodes.</p>
+    <div class="form-row">
+        <label for="node-input-severity"><i class="fa fa-flag"></i> <span data-i18n="alarm-generator.label.severity"></span></label>
+        <select id="node-input-severity" style="width:140px">
+            <option value="info" data-i18n="alarm-generator.severity.info"></option>
+            <option value="warning" data-i18n="alarm-generator.severity.warning"></option>
+            <option value="critical" data-i18n="alarm-generator.severity.critical"></option>
+        </select>
+    </div>
 
-    <h3>Configuration</h3>
-    <dl class="message-properties">
-        <dt>Alarm name</dt>
-        <dd>Name to look for inside <code>thresholds[].name</code>. If left empty, the node emits nothing.</dd>
-        <dt>Alarm ID</dt>
-        <dd>Value of <code>alarm_id</code> in the emitted message. Defaults to <code>1</code> if not set.</dd>
-    </dl>
+    <div class="form-row">
+        <label for="node-input-activate_s"><i class="fa fa-clock-o"></i> <span data-i18n="alarm-generator.label.activate"></span></label>
+        <input type="number" id="node-input-activate_s" min="1" style="width:80px">
+        <span data-i18n="alarm-generator.label.seconds"></span>
+    </div>
 
-    <h3>Input</h3>
-    <p>Accepts two message formats:</p>
-    <ul>
-        <li><code>msg.variables[].thresholds[]</code> (report from <code>module-production</code>)</li>
-        <li><code>msg.thresholds[]</code> directly (single variable from <code>modbus-variable</code>)</li>
-    </ul>
+    <div class="form-row">
+        <label for="node-input-release_s"><i class="fa fa-clock-o"></i> <span data-i18n="alarm-generator.label.release"></span></label>
+        <input type="number" id="node-input-release_s" min="1" style="width:80px">
+        <span data-i18n="alarm-generator.label.seconds"></span>
+    </div>
 
-    <h3>Output</h3>
-    <p>Only emits on state transition (not on every message):</p>
-    <pre>{
-  "device_uuid": "...",
-  "device_name": "...",
-  "alarm_id": 1,
-  "alarm_name": "...",
-  "state": 1,
-  "value1": 50,
-  "value2": 200,
-  "unit": "V",
-  "timestamp": 1786308200000
-}</pre>
-    <p><code>value1</code>/<code>value2</code> are the threshold's condition values, not the instantaneous reading.</p>
+    <div class="form-row">
+        <label for="node-input-release_margin"><i class="fa fa-arrows-h"></i> <span data-i18n="alarm-generator.label.margin"></span></label>
+        <input type="number" id="node-input-release_margin" min="0" step="any" style="width:80px">
+        <span id="mac-unidad" style="color:#666"></span>
+    </div>
+
+    <div id="mac-aviso-cadencia" class="form-tips" style="display:none" data-i18n="alarm-generator.tips.cadence"></div>
 </script>

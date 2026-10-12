@@ -1,0 +1,50 @@
+<script type="text/html" data-help-name="alarm-generator">
+    <p>Turns a <b>threshold</b> of a variable into an <b>alarm</b>, with hysteresis and its own severity. A threshold is still
+    analytics (its ranges travel in the minute packet); only if a flow connects it to this node does it also generate an alarm.
+    Without this node nothing changes.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Variable / Threshold</dt>
+        <dd>One node watches <b>one</b> threshold of <b>one</b> variable (for two thresholds, two nodes). The editor detects the origin
+        node through the direct wire into the input (<code>modbus-variable</code> or <code>module-production</code>, output 1) and offers
+        dropdowns, with the unit visible. With a link node, a function or two origins it shows a warning and lets you type the
+        <code>variable_uuid</code> and the threshold name. Threshold names must be unique within a variable.</dd>
+        <dt>Alarm name</dt>
+        <dd>The <code>alarm_name</code> that travels in the alarm. It is data: it is not translated.</dd>
+        <dt>alarm_uuid</dt>
+        <dd>A uuid v4 generated once with <b>Generate</b>; it must not change afterwards, it is the identity of the alarm in the history.
+        Two alarm-generator nodes cannot share it.</dd>
+        <dt>Severity</dt>
+        <dd><code>info</code> (history only, never shown to the operator), <code>warning</code> (default) or <code>critical</code>.</dd>
+        <dt>Activate after / Release after</dt>
+        <dd>Seconds the condition must hold before the alarm opens (default 5) and before it closes (default 10); 1 s minimum.
+        They are measured with the timestamp of the readings, not with the node clock; if readings stop arriving the state does not change.</dd>
+        <dt>Release margin</dt>
+        <dd>A number without unit of its own (it uses the unit of the variable). Once the alarm is open, it only starts to close when the
+        reading leaves the condition <i>plus the margin</i>: in <code>gt</code>/<code>gte</code> the margin is subtracted from the limit, in
+        <code>lt</code>/<code>lte</code> it is added, in <code>between</code> it applies to both sides, and in <code>eq</code> it does not apply.
+        0 = off. Example: <code>gt 250</code> with margin 5 opens above 250 and closes below 245.</dd>
+    </dl>
+
+    <h3>Input</h3>
+    <p>Two shapes, only the chosen variable is attended: the sample of <code>module-production</code> (<code>variables[]</code> with
+    <code>thresholds[].condition_met</code>) and the message of one variable of <code>modbus-variable</code> (<code>thresholds[]</code> are
+    evaluated here against <code>payload</code>).</p>
+
+    <h3>Output</h3>
+    <p>One output, only on state changes. Connect it to the reporter (like output 2 of the other nodes) and to <code>alarm-publisher</code>.</p>
+    <pre>{
+  "device_uuid": "...", "device_name": "...",
+  "catalog": "alarm-generator",
+  "alarm_uuid": "...", "alarm_name": "...",
+  "severity": "critical",
+  "state": 1,
+  "value": 252.4, "unit": "V",
+  "variable_uuid": "...",
+  "threshold": { "name": "...", "condition": "gt", "value1": 250, "value2": null },
+  "timestamp": 1791399995000
+}</pre>
+    <p><code>timestamp</code> (ms) is the real instant the condition started or ended, not the end of the delay; <code>value</code> is the
+    reading at that instant; <code>threshold</code> is the limit it was compared with.</p>
+</script>

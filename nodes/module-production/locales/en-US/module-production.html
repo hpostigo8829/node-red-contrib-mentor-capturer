@@ -1,0 +1,59 @@
+<script type="text/html" data-help-name="module-production">
+
+<p>Monitors count and presence sensors of a production module (via GPIOs), evaluates 6 predefined operation alarms
+(misalignment, blockage, sensor failure, disconnection), evaluates configurable thresholds on the counts
+of each sample, and emits one production sample per sample interval.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>General configuration</dt>
+    <dd><code>Device UUID</code>, <code>Device Name</code> and the <b>Sample interval</b>: 1 to 60 seconds, a divisor of 60
+    (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60), 1 s by default (a flow without the field stays at 1 s). Thresholds are evaluated on every sample;
+    a slow line (one product every 20 s) picks a longer interval so that most samples are not zero. It is not the old <code>report_interval</code>,
+    which is still ignored. A presence variable weighs the duration of each sample, so its sum is the seconds in high. Alarms A1–A6 do not depend on this interval.</dd>
+    <dt>Count 1 (required) and Count 2 (optional)</dt>
+    <dd>Two independent count variables, each with a GPIO input, a name, a variable UUID, a unit, a mandatory <b>Usage</b>
+    and its own thresholds. Only count usages are offered (production count, verification count, counter without role);
+    the usage decides <code>nature</code> and <code>role</code> and is not emitted. The usage «Production count» always
+    carries the locked threshold <code>zero_count</code> (<code>eq 0</code>). A sensor without a valid usage is not reported.</dd>
+    <dt>Presence (optional)</dt>
+    <dd>A state variable (<code>nature: state</code>): name and UUID only, no unit and no thresholds. It feeds alarms 1, 2 and 4.</dd>
+    <dt>Thresholds</dt>
+    <dd>Name, condition (<code>gt</code>, <code>gte</code>, <code>eq</code>, <code>lte</code>, <code>lt</code>, <code>between</code>)
+    and value(s), the same vocabulary as <code>modbus-variable</code>, without priority. They are evaluated on the bottles counted in each
+    sample. To turn a threshold into an alarm (for instance «no product in X time», with the activation delay), connect the output 1 to an <code>alarm-generator</code>.</dd>
+    <dt>Diagnostics between sensors / sensor blocking</dt>
+    <dd>The 6 predefined alarms, each with an enable checkbox and its time/pulse threshold. Between sensors:
+    1. Misaligned count sensor · 2. Presence sensor disconnected · 4. Misaligned presence sensor. Blocking:
+    3. Blocked count sensor · 5. Count sensor 1 failure · 6. Count sensor 2 failure.</dd>
+    <dt>Diagnostics</dt>
+    <dd>Enables an extra output with the node's full internal state, for debugging.</dd>
+</dl>
+
+<h3>Outputs</h3>
+<ol class="node-ports">
+    <li>Production sample
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Every sample interval, a message with the count, state, <code>nature</code>, <code>role</code> (if any) and evaluated thresholds
+            (<code>condition_met</code>, over <code>[start_timestamp, timestamp]</code>) for each sensor, and the seconds it covers
+            (<code>start_range</code>, <code>end_range</code>).</dd>
+        </dl>
+    </li>
+    <li>Alarms
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Emitted whenever one of the 6 predefined (enabled) alarms changes state (<code>state: 1</code>/<code>0</code>). It carries
+            <code>catalog: "module-production"</code> and the reserved <code>alarm_uuid</code> <code>00000000-0000-0000-0001-00000000000N</code>
+            (N = 1 to 6); <code>alarm_name</code> does not change. Connect it to the reporter and to <code>alarm-publisher</code>.</dd>
+        </dl>
+    </li>
+    <li>Diagnostics
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Only if enabled — the node's full internal state (context, counts, last states) for debugging.</dd>
+        </dl>
+    </li>
+</ol>
+
+</script>

@@ -1,0 +1,18 @@
+<script type="text/html" data-help-name="alarm-publisher">
+    <p>Carries every alarm change <b>at once</b> to the broker; it decides nothing. When there is an alarm is decided by the node that detects it
+    (<code>module-production</code>, <code>modbus-variable</code> or <code>alarm-generator</code>).</p>
+
+    <h3>Input</h3>
+    <p>The alarm message of any of the three sources (output 2 of <code>module-production</code> and of <code>modbus-variable</code>, and the
+    output of <code>alarm-generator</code>). It validates <code>device_uuid</code>, <code>catalog</code>, <code>alarm_uuid</code> and the rest of the
+    contract; an invalid message is not published and one warning per device is written to the log.</p>
+
+    <h3>Output</h3>
+    <p>Connect it to a standard <code>mqtt out</code> node with an <b>empty topic</b> and the same broker as the <code>Sender</code>. It sets
+    <code>msg.topic = mentor_alarms/&lt;device_uuid&gt;</code>, <code>msg.qos = 1</code> and <code>msg.retain = false</code>, and the payload is the
+    <code>alarm-event/v1</code> event: <code>event_uuid</code> (uuid v4 per event), <code>changed_at</code> (real instant of the change, ms) and
+    <code>emitted_at</code> (when it is emitted, ms), plus the alarm fields. <code>value</code> is a number or <code>null</code>.</p>
+
+    <p>There is no queue and no retained message: if the broker is down the event is lost, and the minute packet (which does go through the queue)
+    corrects it. Only the name is configurable: no timers.</p>
+</script>

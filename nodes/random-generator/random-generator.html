@@ -23,10 +23,12 @@ RED.nodes.registerType('random-generator',{
  inputs:0,
  outputs:1,
  icon:"random.png",
- paletteLabel:"Random Generator",
+ paletteLabel:function(){
+  return this._("random-generator.palette")
+ },
 
  label:function(){
-  return this.name || "Random Generator"
+  return this.name || this._("random-generator.palette")
  },
 
  oneditprepare:function(){
@@ -64,41 +66,41 @@ RED.nodes.registerType('random-generator',{
 <script type="text/x-red" data-template-name="random-generator">
 
 <div class="form-row">
-<label>Name</label>
+<label for="node-input-name" data-i18n="node-red:common.label.name"></label>
 <input type="text" id="node-input-name">
 </div>
 
 <div class="form-row">
-<label>Min value</label>
+<label data-i18n="random-generator.label.min"></label>
 <input type="number" id="node-input-min">
 </div>
 
 <div class="form-row">
-<label>Max value</label>
+<label data-i18n="random-generator.label.max"></label>
 <input type="number" id="node-input-max">
 </div>
 
 <div class="form-row">
-<label>Mode</label>
+<label data-i18n="random-generator.label.mode"></label>
 <select id="node-input-mode">
-<option value="random">Random</option>
-<option value="smooth">Smooth</option>
-<option value="walk">Random Walk</option>
-<option value="sine">Sine Wave</option>
-<option value="step">Step</option>
+<option value="random" data-i18n="random-generator.label.random"></option>
+<option value="smooth" data-i18n="random-generator.label.smooth"></option>
+<option value="walk" data-i18n="random-generator.label.walk"></option>
+<option value="sine" data-i18n="random-generator.label.sine"></option>
+<option value="step" data-i18n="random-generator.label.step"></option>
 </select>
 </div>
 
 <div class="form-row">
-<label>Number Type</label>
+<label data-i18n="random-generator.label.numberType"></label>
 <select id="node-input-numberType">
-<option value="decimal">Decimal</option>
-<option value="integer">Integer</option>
+<option value="decimal" data-i18n="random-generator.label.decimal"></option>
+<option value="integer" data-i18n="random-generator.label.integer"></option>
 </select>
 </div>
 
 <div class="form-row" id="row-decimals">
-<label>Decimals</label>
+<label data-i18n="random-generator.label.decimals"></label>
 <select id="node-input-decimals">
 <option value="1">1</option>
 <option value="2">2</option>
@@ -106,78 +108,38 @@ RED.nodes.registerType('random-generator',{
 </div>
 
 <div class="form-row" id="row-steps">
-<label>Step Count</label>
+<label data-i18n="random-generator.label.stepCount"></label>
 <input type="number" id="node-input-steps">
 </div>
 
 <div class="form-row" id="row-stepMode">
-<label>Step Mode</label>
+<label data-i18n="random-generator.label.stepMode"></label>
 <select id="node-input-stepMode">
-<option value="random">Random</option>
-<option value="sequential">Sequential</option>
+<option value="random" data-i18n="random-generator.label.random"></option>
+<option value="sequential" data-i18n="random-generator.label.sequential"></option>
 </select>
 </div>
 
 <div class="form-row" id="row-speed">
-<label>Sine Speed</label>
+<label data-i18n="random-generator.label.sineSpeed"></label>
 <input type="number" id="node-input-speed" step="0.05">
 </div>
 
 <div class="form-row">
-<label>Output Type</label>
+<label data-i18n="random-generator.label.outputType"></label>
 <select id="node-input-outputType">
-<option value="number">Number</option>
-<option value="string">String</option>
+<option value="number" data-i18n="random-generator.label.number"></option>
+<option value="string" data-i18n="random-generator.label.string"></option>
 </select>
 </div>
 
 <div class="form-row">
-<label>Interval</label>
+<label data-i18n="random-generator.label.interval"></label>
 <input type="number" id="node-input-interval" style="width:80px;">
 <select id="node-input-unit" style="width:120px;">
-<option value="seconds">Seconds</option>
-<option value="minutes">Minutes</option>
+<option value="seconds" data-i18n="random-generator.label.seconds"></option>
+<option value="minutes" data-i18n="random-generator.label.minutes"></option>
 </select>
 </div>
-
-</script>
-
-<script type="text/x-red" data-help-name="random-generator">
-
-<p>Generates simulated numeric values at a configurable interval, using different variation modes
-(random, smooth, random walk, sine wave, step). Useful for simulating sensors or testing flows
-without real hardware.</p>
-
-<h3>Configuration</h3>
-<dl class="message-properties">
-    <dt>Min value / Max value</dt>
-    <dd>Range of the generated values.</dd>
-    <dt>Mode</dt>
-    <dd>How the value varies:
-        <ul>
-            <li><b>Random</b>: uniform random value within the range on each interval.</li>
-            <li><b>Smooth</b>: gradually moves toward a new random target (no sudden jumps).</li>
-            <li><b>Random Walk</b>: small cumulative random steps around the current value.</li>
-            <li><b>Sine Wave</b>: oscillates following a sine curve between min and max, with a configurable speed.</li>
-            <li><b>Step</b>: cycles through a fixed set of intermediate values (random or sequential).</li>
-        </ul>
-    </dd>
-    <dt>Number Type</dt>
-    <dd><code>Decimal</code> (with configurable decimal count) or <code>Integer</code>.</dd>
-    <dt>Step Count / Step Mode</dt>
-    <dd>Only with Step mode — how many intermediate values, and whether they're cycled in order or at random.</dd>
-    <dt>Sine Speed</dt>
-    <dd>Only with Sine Wave mode — how fast it oscillates.</dd>
-    <dt>Output Type</dt>
-    <dd><code>Number</code> or <code>String</code>.</dd>
-    <dt>Interval</dt>
-    <dd>How often a new value is generated (seconds or minutes).</dd>
-</dl>
-
-<h3>Input</h3>
-<p>None — the node has no inputs; it generates values on its own based on the configured interval.</p>
-
-<h3>Output</h3>
-<p><code>msg.payload</code> with the generated value, according to the configured Number Type and Output Type.</p>
 
 </script>

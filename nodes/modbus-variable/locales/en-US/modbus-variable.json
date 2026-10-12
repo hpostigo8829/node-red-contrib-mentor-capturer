@@ -1,0 +1,89 @@
+{
+    "modbus-variable": {
+        "palette": "Modbus Variable",
+        "label": {
+            "generate": "Generate",
+            "period": "Period (ms)",
+            "failedCycles": "Failed cycles to open a communication alarm",
+            "server": "Modbus Server",
+            "generateMissing": "Generate the missing ones"
+        },
+        "row": {
+            "function": "Function",
+            "datatype": "Data type",
+            "byteorder": "Byte order",
+            "wordorder": "Word order",
+            "scale": "Scale",
+            "address": "Address",
+            "bigEndian": "Big Endian",
+            "littleEndian": "Little Endian",
+            "normal": "Normal",
+            "swapWords": "Swap Words"
+        },
+        "notify": {
+            "invalid": "Modbus Variable — invalid configuration:",
+            "deviceUuid": "device_uuid: missing or not a valid uuid v4",
+            "variableUuid": "variable_uuid missing or not a valid uuid v4",
+            "noName": "the name is missing",
+            "unnamed": "(unnamed)",
+            "duplicate": "variable_uuid \"__variable__\" repeated in device \"__device__\" (__names__)",
+            "sharedDevice": "Modbus Variable — this device_uuid is already used by another node with another device_name:"
+        },
+        "status": {
+            "connecting": "connecting",
+            "connected": "connected",
+            "closed": "closed",
+            "error": "error",
+            "broken": "broken",
+            "noServer": "no server configured",
+            "invalidDeviceUuid": "invalid device_uuid",
+            "reading": "READING",
+            "ok": "OK",
+            "partial": "PARTIAL",
+            "noUuid": "__count__ without variable_uuid",
+            "noUsage": "__count__ without a valid usage"
+        },
+        "fila": {
+            "name": "Name",
+            "variableUuid": "Variable UUID",
+            "generate": "Generate",
+            "unit": "Unit",
+            "unitWarning": "This unit is not in the suggested list. It is accepted as free text; check that it is spelled correctly.",
+            "usage": "Usage",
+            "chooseUsage": "— choose the usage —",
+            "fixed": "(fixed)",
+            "notValidHere": "__usage__ (not valid here)",
+            "reading": "Reading",
+            "choose": "— choose —",
+            "mode": {
+                "pulses": "Pulses (the register already is what was counted)",
+                "running_total": "Running total (the capturer subtracts the previous reading)"
+            },
+            "cond": {
+                "gt": "Greater (>)",
+                "gte": "Greater or equal (>=)",
+                "eq": "Equal (=)",
+                "lte": "Less or equal (<=)",
+                "lt": "Less (<)",
+                "between": "Between (inside the band)"
+            },
+            "thresholds": "Thresholds (__count__)",
+            "addThreshold": "+ add threshold",
+            "thresholdName": "Name",
+            "value": "Value",
+            "value2": "Value 2",
+            "locked": "🔒 automatic",
+            "lockedTitle": "Added by the usage «Production count»; it marks the seconds without counting",
+            "usos": {
+                "production_count": "Production count",
+                "production_count_redundant": "Verification count",
+                "energy_active": "Active energy (kWh)",
+                "energy_reactive": "Reactive energy (kVArh)",
+                "counter": "Counter without role",
+                "meter_reading": "Accumulated reading without role",
+                "measurement": "Instantaneous measurement",
+                "state": "State"
+            }
+        }
+    }
+}

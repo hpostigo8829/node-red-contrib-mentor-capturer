@@ -1,0 +1,35 @@
+{
+    "alarm-generator": {
+        "palette": "Generador de alarmas",
+        "label": {
+            "origin": "Origen",
+            "variable": "Variable",
+            "threshold": "Umbral",
+            "variableUuid": "UUID de la variable",
+            "thresholdName": "Nombre del umbral",
+            "alarmName": "Nombre de la alarma",
+            "generate": "Generar",
+            "severity": "Severidad",
+            "activate": "Activar tras",
+            "release": "Apagar tras",
+            "seconds": "s",
+            "margin": "Margen para apagar"
+        },
+        "severity": {
+            "info": "info (solo histórico)",
+            "warning": "warning (advertencia)",
+            "critical": "critical (crítica)"
+        },
+        "tips": {
+            "noOrigin": "Origen no detectado: conecta un único modbus-variable o module-production directamente a la entrada (salida 1), o escribe a mano el UUID de la variable y el nombre del umbral.",
+            "cadence": "Activar o apagar es menor que la cadencia de lectura de la variable: el nodo solo ve una lectura por ciclo, así que el retardo real no será menor que ella."
+        },
+        "status": {
+            "waiting": "esperando",
+            "ok": "OK",
+            "activating": "activando",
+            "active": "ACTIVA",
+            "invalid": "configuración inválida"
+        }
+    }
+}

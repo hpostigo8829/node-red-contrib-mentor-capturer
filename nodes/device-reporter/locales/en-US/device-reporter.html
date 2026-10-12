@@ -1,0 +1,28 @@
+<script type="text/html" data-help-name="device-reporter">
+
+<p>Aggregates readings per device and periodically emits a summary report for each of its variables and thresholds,
+and declares the alarms of the device in <code>alarms[]</code>.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Report Interval</dt>
+    <dd>How often a report is generated and sent for each device that has received data (seconds, minutes, or hours).</dd>
+</dl>
+
+<h3>Input</h3>
+<ul>
+    <li><b>Variables:</b> the variable message emitted by output 1 of the <code>modbus-variable</code> node, which includes its configured <code>thresholds[]</code>.</li>
+    <li><b>Alarms:</b> a message whose <code>payload.alarm_uuid</code> is set, from output 2 of <code>modbus-variable</code> or <code>module-production</code>,
+    or from <code>alarm-generator</code>. <code>state: 1</code> opens a range and <code>state: 0</code> closes it, from the <code>timestamp</code> of the message.
+    An alarm with an invalid <code>device_uuid</code>, <code>catalog</code> or <code>alarm_uuid</code> is discarded with one warning.</li>
+</ul>
+
+<h3>Output</h3>
+<p>On each interval, emits one report per device with per-variable summary statistics
+(sum, count, average, min, max, standard deviation) and, for each threshold, the time
+ranges during which its condition stayed true along with statistics for that range.</p>
+<p><code>alarms[]</code> groups the alarms of that device by <code>(catalog, alarm_uuid)</code> with their ranges inside the window:
+<code>catalog</code>, <code>alarm_uuid</code>, <code>severity</code> (only for the <code>alarm-generator</code> catalog), <code>alarm_name</code>,
+<code>state</code>, <code>value</code>, <code>unit</code> and <code>ranges[]</code>. A range still open at the end of the window is closed there and continues in the next report.</p>
+
+</script>

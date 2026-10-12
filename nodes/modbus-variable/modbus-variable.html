@@ -1,50 +1,9 @@
-<style>
-
-.threshold-container{
- margin-top:6px;
- border-top:1px solid #ddd;
- padding-top:6px;
-}
-
-.threshold-header{
- cursor:pointer;
- font-weight:bold;
- color:#444;
- margin-bottom:5px;
-}
-
-.threshold-list{
- margin-left:10px;
-}
-
-.threshold-row{
- display:flex;
- gap:6px;
- align-items:center;
- flex-wrap:wrap;
-}
-
-.threshold-name{
- width:140px !important;
-}
-
-.threshold-condition{
- width:120px !important;
-}
-
-.threshold-val1,
-.threshold-val2{
- width:70px !important;
-}
-
-.threshold-priority{
- width:90px !important;
-}
-
-</style>
-
+<script type="text/javascript" src="resources/node-red-contrib-mentor-capturer/naturaleza-variable.js"></script>
+<script type="text/javascript" src="resources/node-red-contrib-mentor-capturer/fila-variable.js"></script>
 
 <script type="text/javascript">
+
+var reglas=MentorNaturalezaVariable
 
 var functions=[
  {v:"FC1",t:"FC1 Read Coils"},
@@ -65,20 +24,14 @@ var datatypes=[
  {v:"float64",t:"Float64 / Double"}
 ]
 
-var types=[
- {v:"instantaneous",t:"instantaneous"},
- {v:"counter",t:"counter"},
- {v:"state",t:"state"}
-]
-
 var byteorders=[
- {v:"BE",t:"Big Endian"},
- {v:"LE",t:"Little Endian"}
+ {v:"BE",k:"bigEndian"},
+ {v:"LE",k:"littleEndian"}
 ]
 
 var wordorders=[
- {v:"normal",t:"Normal"},
- {v:"swap",t:"Swap Words"}
+ {v:"normal",k:"normal"},
+ {v:"swap",k:"swapWords"}
 ]
 
 var scales=[
@@ -91,20 +44,63 @@ var scales=[
  {v:"1000",t:"1000"}
 ]
 
-var conditions=[
- {v:"gt",t:"Mayor (>)"},
- {v:"gte",t:"Mayor Igual (>=)"},
- {v:"eq",t:"Igual (=)"},
- {v:"lte",t:"Menor Igual (<=)"},
- {v:"lt",t:"Menor (<)"},
- {v:"between",t:"Entre"}
-]
+// RN4 (spec 007): items {device_uuid, variable_uuid, name} de este nodo (con
+// los valores del formulario en pantalla, no los guardados) más los de todos
+// los demás modbus-variable/module-production del espacio de trabajo que
+// declaren el mismo device_uuid. E6: dos nodos del mismo equipo comparten
+// device_uuid a propósito, así que la unicidad se comprueba sumando los dos.
+function itemsDeIdentidad(nodoEnEdicion){
 
-var priorities=[
- {v:"low",t:"Low"},
- {v:"medium",t:"Medium"},
- {v:"high",t:"High"}
-]
+ let deviceUuid=reglas.normalizarUuid(nodoEnEdicion.device_uuid||"")
+ if(!deviceUuid) return []
+
+ let items=(nodoEnEdicion.sequences||[]).map(function(s){
+  return {device_uuid:deviceUuid,variable_uuid:s.variable_uuid,name:s.name}
+ })
+
+ RED.nodes.eachNode(function(n){
+
+  if(n.id===nodoEnEdicion.id) return
+
+  if(n.type==="modbus-variable" && n.device_uuid===deviceUuid){
+   (n.sequences||[]).forEach(function(s){
+    items.push({device_uuid:deviceUuid,variable_uuid:s.variable_uuid,name:s.name})
+   })
+  }
+
+  if(n.type==="module-production" && n.device_uuid===deviceUuid){
+   ["uuid_sc1","uuid_sc2","uuid_sp"].forEach(function(k){
+    if(n[k]) items.push({device_uuid:deviceUuid,variable_uuid:n[k],name:k})
+   })
+  }
+
+ })
+
+ return items
+
+}
+
+// E5 (spec 007): otro nodo del espacio de trabajo con el mismo device_uuid y
+// otro device_name. Solo avisa; no invalida (E6).
+function nombresDeDispositivoCompartido(nodoEnEdicion){
+
+ let deviceUuid=reglas.normalizarUuid(nodoEnEdicion.device_uuid||"")
+ if(!deviceUuid) return []
+
+ let items=[{device_uuid:deviceUuid,device_name:nodoEnEdicion.device_name||""}]
+
+ RED.nodes.eachNode(function(n){
+
+  if(n.id===nodoEnEdicion.id) return
+  if((n.type==="modbus-variable" || n.type==="module-production") && n.device_uuid===deviceUuid){
+   items.push({device_uuid:deviceUuid,device_name:n.device_name||""})
+  }
+
+ })
+
+ return reglas.dispositivosConNombresDistintos(items)
+
+}
 
 function refreshRow(row){
 
@@ -162,10 +158,58 @@ color:'#E9967A',
 
 defaults:{
  name:{value:""},
- device_uuid:{value:""},
- device_name:{value:""},
+ device_uuid:{
+  value:"",
+  required:true,
+  validate:function(v){
+   if(typeof MentorNaturalezaVariable==="undefined") return true
+   return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v))
+  }
+ },
+ device_name:{value:"",required:true},
  unitid:{value:"1"},
- sequences:{value:[]},
+ period_ms:{
+  value:1000,
+  validate:function(v){
+   let n=Number(v)
+   return Number.isFinite(n) && n>0
+  }
+ },
+ // Ciclos fallidos seguidos para abrir una alarma de comunicación (spec 010, D8).
+ // Un ciclo fallido es uno en el que todas las lecturas fallaron. 1 = al primero.
+ failed_cycles:{
+  value:3,
+  validate:function(v){
+   if(v==="" || v===undefined || v===null) return true
+   let n=Number(v)
+   return Number.isInteger(n) && n>=1
+  }
+ },
+ sequences:{
+  value:[],
+  validate:function(secuencias){
+
+   if(typeof MentorNaturalezaVariable==="undefined") return true
+
+   // Spec 009: toda variable declara su uso. Una guardada por versiones
+   // anteriores con nature/role se acepta (el uso se deduce); una sin ninguno de
+   // los dos, o con un umbral mal escrito, deja el nodo en rojo.
+   let formatoOk=(secuencias||[]).every(function(s){
+    return !!s.name
+     && MentorNaturalezaVariable.validarVariable(s).length===0
+     && MentorNaturalezaVariable.avisosDeConfiguracion(s).length===0
+     && MentorNaturalezaVariable.esUuidV4(s.variable_uuid)
+   })
+
+   if(!formatoOk) return false
+
+   // RN4: unicidad por device_uuid, sumando este nodo con los demás
+   // modbus-variable / module-production del espacio de trabajo que
+   // comparten el mismo device_uuid (E6).
+   return MentorNaturalezaVariable.duplicadosPorDispositivo(itemsDeIdentidad(this)).length===0
+
+  }
+ },
  server:{
   type:'modbus-client',
   required:true
@@ -175,209 +219,124 @@ defaults:{
 inputs:1,
 outputs:3,
 icon:'modbus.png',
-paletteLabel:'Modbus Variable',
+paletteLabel:function(){
+ return this._("modbus-variable.palette")
+},
 
 label:function(){
  if(this.name) return this.name
- return "Modbus Variable"
+ return this._("modbus-variable.palette")
 },
 
 oneditprepare:function(){
+
+let editado=this
+
+// Los textos del formulario común y de las filas salen del catálogo de este nodo
+// (spec 010, D15), en el idioma del editor.
+let t=function(clave,variables){ return editado._("modbus-variable."+clave,variables) }
+let tFila=function(clave,variables){ return editado._("modbus-variable.fila."+clave,variables) }
+
+$("#btn-generar-device-uuid").on("click",function(e){
+ e.preventDefault()
+ $("#node-input-device_uuid").val(reglas.nuevoUuidV4())
+})
+
+$("#btn-generar-faltantes").on("click",function(e){
+ e.preventDefault()
+ $("#node-input-sequences-container").editableList('items').each(function(){
+  let uuidField=$(this).find(".mfv-uuid")
+  if(!uuidField.val()) uuidField.val(reglas.nuevoUuidV4())
+ })
+})
 
 $("#node-input-sequences-container").editableList({
 
 addItem:function(row,index,data){
 
-let sequence=data||{}
+// Lo guardado por versiones anteriores se adapta aquí: el uso se deduce de
+// nature/role y "type" y "priority" desaparecen.
+let sequence=reglas.cargarVariable(data||{})
 
 row.css({
  overflow:'hidden',
  whiteSpace:'nowrap'
 })
 
-let r0=$('<div/>',{class:"form-row"}).appendTo(row)
-let r1=$('<div/>',{class:"form-row"}).appendTo(row)
-let rType=$('<div/>',{class:"form-row"}).appendTo(row)
-let r2=$('<div/>',{class:"form-row"}).appendTo(row)
-let r3=$('<div/>',{class:"form-row"}).appendTo(row)
-let r4=$('<div/>',{class:"form-row row-byte"}).appendTo(row)
-let r5=$('<div/>',{class:"form-row row-word"}).appendTo(row)
-let r6=$('<div/>',{class:"form-row row-scale"}).appendTo(row)
-let r7=$('<div/>',{class:"form-row"}).appendTo(row)
+let fila=MentorFilaVariable.crear(row,sequence,{
 
-$('<label/>').text("Name").appendTo(r0)
-let nameField=$('<input/>',{class:"node-input-sequencename"}).appendTo(r0)
+ conModo:true,
+ t:tFila,
 
-$('<label/>').text("Unit").appendTo(r1)
-let unitField=$('<input/>',{class:"node-input-unit"}).appendTo(r1)
+ // Los campos propios de Modbus van entre el uso y los umbrales.
+ antesDeUmbrales:function(contenedor){
 
-$('<label/>').text("Type").appendTo(rType)
-let typeField=$('<select/>',{class:"node-input-type"}).appendTo(rType)
+  let r2=$('<div/>',{class:"form-row"}).appendTo(contenedor)
+  let r3=$('<div/>',{class:"form-row"}).appendTo(contenedor)
+  let r4=$('<div/>',{class:"form-row row-byte"}).appendTo(contenedor)
+  let r5=$('<div/>',{class:"form-row row-word"}).appendTo(contenedor)
+  let r6=$('<div/>',{class:"form-row row-scale"}).appendTo(contenedor)
+  let r7=$('<div/>',{class:"form-row"}).appendTo(contenedor)
 
-types.forEach(function(t){
- typeField.append($("<option>").val(t.v).text(t.t))
-})
+  $('<label/>').text(t("row.function")).appendTo(r2)
+  let fcField=$('<select/>',{class:"node-input-function"}).appendTo(r2)
 
-$('<label/>').text("Function").appendTo(r2)
-let fcField=$('<select/>',{class:"node-input-function"}).appendTo(r2)
+  functions.forEach(function(f){
+   fcField.append($("<option>").val(f.v).text(f.t))
+  })
 
-functions.forEach(function(f){
- fcField.append($("<option>").val(f.v).text(f.t))
-})
+  $('<label/>').text(t("row.datatype")).appendTo(r3)
+  let datatypeField=$('<select/>',{class:"node-input-datatype"}).appendTo(r3)
 
-$('<label/>').text("Datatype").appendTo(r3)
-let datatypeField=$('<select/>',{class:"node-input-datatype"}).appendTo(r3)
+  datatypes.forEach(function(d){
+   datatypeField.append($("<option>").val(d.v).text(d.t))
+  })
 
-datatypes.forEach(function(d){
- datatypeField.append($("<option>").val(d.v).text(d.t))
-})
+  $('<label/>').text(t("row.byteorder")).appendTo(r4)
+  let byteField=$('<select/>',{class:"node-input-byteorder"}).appendTo(r4)
 
-$('<label/>').text("Byte Order").appendTo(r4)
-let byteField=$('<select/>',{class:"node-input-byteorder"}).appendTo(r4)
+  byteorders.forEach(function(b){
+   byteField.append($("<option>").val(b.v).text(t("row."+b.k)))
+  })
 
-byteorders.forEach(function(b){
- byteField.append($("<option>").val(b.v).text(b.t))
-})
+  $('<label/>').text(t("row.wordorder")).appendTo(r5)
+  let wordField=$('<select/>',{class:"node-input-wordorder"}).appendTo(r5)
 
-$('<label/>').text("Word Order").appendTo(r5)
-let wordField=$('<select/>',{class:"node-input-wordorder"}).appendTo(r5)
+  wordorders.forEach(function(w){
+   wordField.append($("<option>").val(w.v).text(t("row."+w.k)))
+  })
 
-wordorders.forEach(function(w){
- wordField.append($("<option>").val(w.v).text(w.t))
-})
+  $('<label/>').text(t("row.scale")).appendTo(r6)
+  let scaleField=$('<select/>',{class:"node-input-scale"}).appendTo(r6)
 
-$('<label/>').text("Scale").appendTo(r6)
-let scaleField=$('<select/>',{class:"node-input-scale"}).appendTo(r6)
+  scales.forEach(function(s){
+   scaleField.append($("<option>").val(s.v).text(s.t))
+  })
 
-scales.forEach(function(s){
- scaleField.append($("<option>").val(s.v).text(s.t))
-})
+  $('<label/>').text(t("row.address")).appendTo(r7)
+  let addressField=$('<input/>',{class:"node-input-address"}).appendTo(r7)
 
-$('<label/>').text("Address").appendTo(r7)
-let addressField=$('<input/>',{class:"node-input-address"}).appendTo(r7)
+  datatypeField.val(sequence.datatype||"uint16")
+  byteField.val(sequence.byteorder||"BE")
+  wordField.val(sequence.wordorder||"normal")
+  scaleField.val(sequence.scale||"1")
+  fcField.val(sequence.fc||"FC3")
+  addressField.val(sequence.address||"")
 
-nameField.val(sequence.name||"")
-unitField.val(sequence.unit||"")
-typeField.val(sequence.type||"instantaneous")
-datatypeField.val(sequence.datatype||"uint16")
-byteField.val(sequence.byteorder||"BE")
-wordField.val(sequence.wordorder||"normal")
-scaleField.val(sequence.scale||"1")
-fcField.val(sequence.fc||"FC3")
-addressField.val(sequence.address||"")
+  function update(){
+   refreshRow(row)
+  }
 
-let thrContainer=$('<div/>',{class:"threshold-container"}).appendTo(row)
+  fcField.change(update)
+  datatypeField.change(update)
 
-let thrHeader=$('<div/>',{class:"threshold-header"}).appendTo(thrContainer)
-
-let thrList=$('<ol/>',{class:"thresholds-list threshold-list"}).appendTo(thrContainer)
-
-let loadingThresholds=true
-
-thrList.hide()
-
-function updateThresholdCount(){
-
- let count=thrList.editableList('items').length
-
- thrHeader.text(
-  (thrList.is(":visible")?"▼ ":"▶ ")+"Thresholds ("+count+")"
- )
-
-}
-
-thrHeader.on("click",function(){
-
- if(thrList.is(":visible")){
-  thrList.hide()
- }else{
-  thrList.show()
  }
 
- updateThresholdCount()
-
 })
 
-thrList.editableList({
+row.data("fila",fila)
 
-addItem:function(trow,i,tdata){
-
-if(!loadingThresholds){
- thrList.show()
-}
-
-let th=tdata||{}
-
-let r1=$('<div/>',{class:"threshold-row"}).appendTo(trow)
-
-let name=$('<input/>',{class:"threshold-name",placeholder:"Nombre"}).appendTo(r1)
-
-let cond=$('<select/>',{class:"threshold-condition"}).appendTo(r1)
-
-conditions.forEach(function(c){
- cond.append($("<option>").val(c.v).text(c.t))
-})
-
-let val1=$('<input/>',{type:"number",class:"threshold-val1",placeholder:"V1"}).appendTo(r1)
-
-let val2=$('<input/>',{type:"number",class:"threshold-val2",placeholder:"V2"}).appendTo(r1)
-
-let prio=$('<select/>',{class:"threshold-priority"}).appendTo(r1)
-
-priorities.forEach(function(p){
- prio.append($("<option>").val(p.v).text(p.t))
-})
-
-name.val(th.name||"")
-cond.val(th.condition||"gt")
-val1.val(th.value||"")
-val2.val(th.value2||"")
-prio.val(th.priority||"low")
-
-function updateCond(){
-
- if(cond.val()==="between"){
-  val2.show()
- }else{
-  val2.hide()
- }
-
-}
-
-cond.change(updateCond)
-updateCond()
-
-updateThresholdCount()
-
-},
-
-removeItem:function(){
- updateThresholdCount()
-},
-
-removable:true,
-sortable:true
-
-})
-
-if(sequence.thresholds){
- sequence.thresholds.forEach(function(t){
-  thrList.editableList('addItem',t)
- })
-}
-
-loadingThresholds=false
-
-updateThresholdCount()
-
-function update(){
- refreshRow(row)
-}
-
-fcField.change(update)
-datatypeField.change(update)
-
-update()
+refreshRow(row)
 
 },
 
@@ -400,6 +359,11 @@ let sequences=$("#node-input-sequences-container").editableList('items')
 
 let node=this
 
+// CA5: un uuid v4 válido en mayúsculas o con espacios se guarda recortado y en
+// minúsculas. normalizarUuid() no inventa nada si no es válido: eso lo dice
+// `validate` (RN1, CA4).
+$("#node-input-device_uuid").val(reglas.normalizarUuid($("#node-input-device_uuid").val()))
+
 node.sequences=[]
 
 sequences.each(function(){
@@ -413,41 +377,99 @@ let quantity=1
 if(["int32","uint32","float32"].includes(datatype)) quantity=2
 if(["int64","uint64","float64"].includes(datatype)) quantity=4
 
-let thresholds=[]
+// Nombre, uuid, unidad, uso, lectura del conteo y umbrales los lee el
+// componente común; la lectura Modbus, este nodo. El uso decide nature y role:
+// no se guardan (ni type, ni la prioridad de los umbrales).
+// editableList('items') devuelve el contenido de cada fila; si alguna versión de
+// Node-RED devolviera el <li>, el contenido está dentro.
+let filaComun=seq.data("fila") || seq.find(".red-ui-editableList-item-content").data("fila")
 
-seq.find(".thresholds-list").editableList('items').each(function(){
+let modelo=filaComun.leer()
 
-let t=$(this)
+node.sequences.push(reglas.guardarVariable(Object.assign({},modelo,{
 
-thresholds.push({
-
- name:t.find(".threshold-name").val(),
- condition:t.find(".threshold-condition").val(),
- value:t.find(".threshold-val1").val(),
- value2:t.find(".threshold-val2").val(),
- priority:t.find(".threshold-priority").val()
-
-})
-
-})
-
-node.sequences.push({
-
- name:seq.find(".node-input-sequencename").val(),
- unit:seq.find(".node-input-unit").val(),
- type:seq.find(".node-input-type").val(),
  datatype:datatype,
  byteorder:seq.find(".node-input-byteorder").val(),
  wordorder:seq.find(".node-input-wordorder").val(),
  scale:seq.find(".node-input-scale").val(),
  fc:seq.find(".node-input-function").val(),
  address:seq.find(".node-input-address").val(),
- quantity:quantity,
- thresholds:thresholds
+ quantity:quantity
+
+})))
 
 })
 
+// Node-RED no permite cancelar el guardado, así que la configuración inválida
+// se dice aquí y el nodo queda marcado en rojo por `validate`.
+let motivos=[]
+
+let deviceUuid=$("#node-input-device_uuid").val()
+
+// itemsDeIdentidad()/nombresDeDispositivoCompartido() leen node.device_uuid y
+// node.device_name: se fijan aquí explícitamente porque Node-RED solo copia
+// los campos ligados al formulario DESPUÉS de que oneditsave termina.
+node.device_uuid=deviceUuid
+node.device_name=$("#node-input-device_name").val()
+
+if(!reglas.esUuidV4(deviceUuid)){
+ motivos.push(node._("modbus-variable.notify.deviceUuid"))
+}
+
+node.sequences.forEach(function(s){
+
+ let nombre=s.name||node._("modbus-variable.notify.unnamed")
+
+ if(!s.name){
+  motivos.push(nombre+": "+node._("modbus-variable.notify.noName"))
+ }
+
+ reglas.validarVariable(s).forEach(function(e){
+  motivos.push(nombre+": "+e)
+ })
+
+ // Un contador de producción sin su umbral de conteo cero: el uso es válido,
+ // pero la variable no sirve para lo que se declaró.
+ reglas.avisosDeConfiguracion(s).forEach(function(e){
+  motivos.push(nombre+": "+e)
+ })
+
+ if(!reglas.esUuidV4(s.variable_uuid)){
+  motivos.push(nombre+": "+node._("modbus-variable.notify.variableUuid"))
+ }
+
 })
+
+// RN4: variable_uuid único dentro del device_uuid, sumando este nodo y los
+// demás del espacio de trabajo que lo comparten.
+let duplicados=reglas.duplicadosPorDispositivo(itemsDeIdentidad(node))
+
+duplicados.forEach(function(d){
+ motivos.push(node._("modbus-variable.notify.duplicate",{
+  variable:d.variable_uuid,
+  device:d.device_uuid,
+  names:d.items.map(function(it){ return it.name||node._("modbus-variable.notify.unnamed") }).join(", ")
+ }))
+})
+
+if(motivos.length){
+ RED.notify(
+  node._("modbus-variable.notify.invalid")+"<br>"+motivos.join("<br>"),
+  {type:"error",timeout:10000}
+ )
+}
+
+// E5/CA6: aviso, sin invalidar (E6: dos nodos del mismo equipo comparten
+// device_uuid a propósito).
+let compartidos=nombresDeDispositivoCompartido(node)
+
+if(compartidos.length){
+ RED.notify(
+  node._("modbus-variable.notify.sharedDevice")+" "
+   +compartidos.map(function(c){ return c.device_name.join(" / ") }).join(", "),
+  {type:"warning",timeout:10000}
+ )
+}
 
 }
 
@@ -459,13 +481,14 @@ node.sequences.push({
 <script type="text/x-red" data-template-name="modbus-variable">
 
 <div class="form-row">
-<label>Name</label>
+<label data-i18n="node-red:common.label.name"></label>
 <input type="text" id="node-input-name">
 </div>
 
 <div class="form-row">
 <label>Device UUID</label>
-<input type="text" id="node-input-device_uuid">
+<input type="text" id="node-input-device_uuid" style="width:60%">
+<button type="button" id="btn-generar-device-uuid" class="red-ui-button" style="margin-left:6px" data-i18n="modbus-variable.label.generate"></button>
 </div>
 
 <div class="form-row">
@@ -479,58 +502,26 @@ node.sequences.push({
 </div>
 
 <div class="form-row">
-<label>Modbus Server</label>
+<label data-i18n="modbus-variable.label.period"></label>
+<input type="text" id="node-input-period_ms" placeholder="1000">
+</div>
+
+<div class="form-row">
+<label data-i18n="modbus-variable.label.failedCycles" style="width:auto"></label>
+<input type="number" id="node-input-failed_cycles" min="1" step="1" placeholder="3" style="width:70px">
+</div>
+
+<div class="form-row">
+<label data-i18n="modbus-variable.label.server"></label>
 <input type="text" id="node-input-server">
+</div>
+
+<div class="form-row">
+<button type="button" id="btn-generar-faltantes" class="red-ui-button" data-i18n="modbus-variable.label.generateMissing"></button>
 </div>
 
 <div class="form-row">
 <ol id="node-input-sequences-container"></ol>
 </div>
-
-</script>
-
-<script type="text/x-red" data-help-name="modbus-variable">
-
-<p>Reads variables from a Modbus server according to the configured sequences (address, function, data type) and emits each variable's value, along with its configured thresholds and communication alarms.</p>
-
-<h3>Configuration</h3>
-<dl class="message-properties">
-    <dt>Device UUID / Device Name</dt>
-    <dd>Device identifiers, included in every emitted message.</dd>
-    <dt>Unit ID</dt>
-    <dd>Modbus slave ID.</dd>
-    <dt>Modbus Server</dt>
-    <dd>Configured Modbus server (<code>modbus-client</code> node).</dd>
-    <dt>Sequences</dt>
-    <dd>List of variables to read, each with Name, Unit, Type (<code>instantaneous</code>, <code>counter</code>, <code>state</code>),
-    Function (FC1–FC4), Datatype, Byte Order, Word Order, Scale, and Address.
-    Each sequence can also define optional Thresholds (name, condition, value/value2, priority),
-    which are included in the output message so another node (such as <code>alarm-generator</code>) can evaluate value alarms.</dd>
-</dl>
-
-<h3>Outputs</h3>
-<ol class="node-ports">
-    <li>Variable
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">number | boolean</span></dt>
-            <dd>One message per read sequence, with <code>device_uuid</code>, <code>device_name</code>, <code>variable_name</code>,
-            the read and scaled value, <code>unit</code>, <code>type</code>, <code>thresholds[]</code>, and <code>responseBuffer</code>.</dd>
-        </dl>
-    </li>
-    <li>Communication alarms
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">object</span></dt>
-            <dd>Connection alarms (<code>DEVICE OFFLINE</code>, <code>READ TIMEOUT</code>, <code>RTU CRC ERROR</code>) whenever a
-            Modbus server issue is detected or resolved.</dd>
-        </dl>
-    </li>
-    <li>Cycle summary
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">object</span></dt>
-            <dd>Sent at the end of each read cycle, with <code>variables_total</code>, <code>variables_ok</code>,
-            <code>variables_error</code>, <code>duration_ms</code>, and <code>status</code> (<code>ok</code> / <code>partial</code> / <code>failed</code>).</dd>
-        </dl>
-    </li>
-</ol>
 
 </script>

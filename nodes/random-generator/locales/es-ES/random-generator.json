@@ -1,0 +1,29 @@
+{
+    "random-generator": {
+        "palette": "Generador aleatorio",
+        "label": {
+            "min": "Valor mínimo",
+            "max": "Valor máximo",
+            "mode": "Modo",
+            "random": "Aleatorio",
+            "smooth": "Suave",
+            "walk": "Caminata aleatoria",
+            "sine": "Onda senoidal",
+            "step": "Escalones",
+            "numberType": "Tipo de número",
+            "decimal": "Decimal",
+            "integer": "Entero",
+            "decimals": "Decimales",
+            "stepCount": "Número de escalones",
+            "stepMode": "Modo de escalones",
+            "sequential": "Secuencial",
+            "sineSpeed": "Velocidad de la onda",
+            "outputType": "Tipo de salida",
+            "number": "Número",
+            "string": "Texto",
+            "interval": "Intervalo",
+            "seconds": "Segundos",
+            "minutes": "Minutos"
+        }
+    }
+}

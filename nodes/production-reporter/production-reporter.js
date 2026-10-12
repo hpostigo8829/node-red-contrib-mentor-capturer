@@ -1,10 +1,17 @@
 module.exports = function(RED){
 
+const naturaleza=require("../../resources/naturaleza-variable")
+const alarmas=require("../../resources/alarmas")
+
 function ProductionReporter(config){
 
 RED.nodes.createNode(this,config)
 
 let node=this
+
+// CA9 (spec 007): descarta con un aviso, una vez por clave, una variable sin
+// variable_uuid válido. Igual que device-reporter (CA8), pero por dispositivo.
+node.avisosDescartados={}
 
 let interval=Number(config.interval)||60
 let unit=config.unit||"seconds"
@@ -21,8 +28,10 @@ let interval_ms=interval*(multiplier[unit]||1000)
 // 🔹 ESTADO
 // =========================
 let devices={}
-let alarms_active={}
-let alarms_history=[]
+// Spec 010: las alarmas se separan por dispositivo y su clave es
+// (device_uuid, catalog, alarm_uuid), igual que en device-reporter.
+let registro_alarmas=alarmas.crearRegistroDeAlarmas()
+node.avisosAlarma={}
 
 // 🔹 THRESHOLDS
 let thresholds_active={}
@@ -69,29 +78,73 @@ node.on("input",function(msg){
 
   msg.variables.forEach(v=>{
 
-   if(!device.variables[v.variable_name]){
-    device.variables[v.variable_name]={
+   if(!naturaleza.esUuidV4(v.variable_uuid)){
 
-     variable_uuid:v.variable_name,
-     name:v.variable_name,
+    let clave=device_id+"|"+(v.variable_name||"?")
+
+    if(!node.avisosDescartados[clave]){
+     node.avisosDescartados[clave]=true
+     node.error(`${v.variable_name||"(sin nombre)"}: variable_uuid ausente o inválido; se descarta`)
+    }
+
+    return
+   }
+
+   // Spec 009: nature es obligatoria en el paquete. Una variable sin nature
+   // válida (no salió de un uso declarado) no se resume ni se publica.
+   if(!naturaleza.NATURALEZAS.includes(v.nature)){
+
+    let claveNature=device_id+"|"+v.variable_uuid+"|nature"
+
+    if(!node.avisosDescartados[claveNature]){
+     node.avisosDescartados[claveNature]=true
+     node.error(`${v.variable_name||"(sin nombre)"}: nature ausente o inválida; se descarta`)
+    }
+
+    return
+   }
+
+   if(!device.variables[v.variable_uuid]){
+    device.variables[v.variable_uuid]={
+
+     variable_uuid:v.variable_uuid,
+     name:v.variable_name||v.variable_uuid,
      unit:v.unit||"",
-     type:"counter",
+
+     // La naturaleza la declara quien conoce el sensor (module-production): la
+     // presencia es un estado, no un contador.
+     nature:v.nature,
+     role:v.role,
 
      sum:0,
      count:0,
      min:null,
      max:null,
-     sum_sq:0
+     sum_sq:0,
+     last:null
 
     }
    }
 
-   let val=Number(v.count)||0
-   let variable=device.variables[v.variable_name]
+   // Un estado (la presencia) resume su nivel en la muestra; un contador, las
+   // botellas contadas en ella.
+   let val=(v.nature==="state" ? Number(v.state) : Number(v.count))||0
+   let variable=device.variables[v.variable_uuid]
 
-   variable.sum+=val
+   // Spec 010 (D13): la muestra cubre [start_range, end_range], que con
+   // sample_interval puede ser de más de un segundo. Un estado pesa lo que dura la
+   // muestra, de modo que su suma son los segundos en alto; min, max y last siguen
+   // siendo el nivel (0 o 1). Con un segundo por muestra el peso es 1.
+   let peso=1
+
+   if(v.nature==="state"){
+    peso=Math.max(1,(Number(msg.end_range)-Number(msg.start_range))||1)
+   }
+
+   variable.sum+=val*peso
    variable.count++
-   variable.sum_sq+=(val*val)
+   variable.sum_sq+=(val*peso)*(val*peso)
+   variable.last=val
 
    if(variable.min===null||val<variable.min){
     variable.min=val
@@ -110,7 +163,7 @@ node.on("input",function(msg){
 
      let key=
       device_id+"|"+
-      v.variable_name+"|"+
+      v.variable_uuid+"|"+
       t.name
 
      let ts=Number(t.timestamp)||Date.now()
@@ -118,6 +171,16 @@ node.on("input",function(msg){
      // convertir ms -> seg
      if(ts>9999999999){
       ts=Math.floor(ts/1000)
+     }
+
+     // Inicio de la muestra: module-production evalúa cada segundo, así que una
+     // muestra cubre [start_timestamp, timestamp] y un tramo de k segundos seguidos
+     // dura exactamente k. Sin start_timestamp (un emisor anterior) la muestra
+     // se toma puntual, como antes.
+     let ts_inicio=Number(t.start_timestamp)||ts
+
+     if(ts_inicio>9999999999){
+      ts_inicio=Math.floor(ts_inicio/1000)
      }
 
      // =========================
@@ -130,13 +193,14 @@ node.on("input",function(msg){
        thresholds_active[key]={
 
         device_uuid:device_id,
-        variable_name:v.variable_name,
+        variable_uuid:v.variable_uuid,
 
         threshold_id:t.name,
-        validation:t.condition,
+        validation:naturaleza.normalizarCondicion(t.condition),
         value:t.value,
+        value2:t.value2===undefined||t.value2===""?null:t.value2,
 
-        start:ts,
+        start:ts_inicio,
         end:ts,
 
         sum:0,
@@ -195,48 +259,38 @@ node.on("input",function(msg){
  // =========================
  // 🔹 ALARMAS
  // =========================
- if(msg.payload && msg.payload.alarm_id!==undefined){
+ // Un mensaje de alarma (salida 2 de module-production o modbus-variable, o
+ // alarm-generator) se reconoce por payload.alarm_uuid (spec 010).
+ if(msg.payload && typeof msg.payload==="object" && msg.payload.alarm_uuid!==undefined){
 
-  let a=msg.payload
-  let id=a.alarm_id
-  let ts=Math.floor((a.timestamp||Date.now())/1000)
+  let p=msg.payload
+  let errores=alarmas.validarAlarma(p)
 
-  if(a.state===1){
+  if(errores.length){
 
-   alarms_active[id]={
+   let claveAviso=p.device_uuid+"|"+p.catalog+"|"+p.alarm_uuid
 
-    alarm_id:a.alarm_id,
-    alarm_name:a.alarm_name,
-    value:a.value,
-    unit:a.unit,
-    start:ts
-
+   if(!node.avisosAlarma[claveAviso]){
+    node.avisosAlarma[claveAviso]=true
+    node.error(`alarma descartada: ${errores.join("; ")}`)
    }
+
+   return
 
   }
 
-  else if(a.state===0){
+  let a=alarmas.normalizarAlarma(p)
 
-   if(alarms_active[id]){
-
-    let active=alarms_active[id]
-
-    alarms_history.push({
-
-     alarm_id:active.alarm_id,
-     alarm_name:active.alarm_name,
-     value:active.value,
-     unit:active.unit,
-     start:active.start,
-     end:ts
-
-    })
-
-    delete alarms_active[id]
-
+  // Como en device-reporter: el dispositivo entra en el informe aunque aún no
+  // tenga muestras en la ventana.
+  if(!devices[a.device_uuid]){
+   devices[a.device_uuid]={
+    device_name:a.device_name,
+    variables:{}
    }
-
   }
+
+  registro_alarmas.registrar(a)
 
  }
 
@@ -271,7 +325,7 @@ function generateReport(){
 
     if(
      t.device_uuid===device_id &&
-     t.variable_name===v.variable_uuid
+     t.variable_uuid===v.variable_uuid
     ){
 
      if(!grouped_thresholds[t.threshold_id]){
@@ -281,6 +335,7 @@ function generateReport(){
        threshold_id:t.threshold_id,
        validation:t.validation,
        value:t.value,
+       value2:t.value2,
 
        ranges:[]
 
@@ -324,7 +379,7 @@ function generateReport(){
 
     if(
      t.device_uuid===device_id &&
-     t.variable_name===v.variable_uuid
+     t.variable_uuid===v.variable_uuid
     ){
 
      if(!grouped_thresholds[t.threshold_id]){
@@ -334,6 +389,7 @@ function generateReport(){
        threshold_id:t.threshold_id,
        validation:t.validation,
        value:t.value,
+       value2:t.value2,
 
        ranges:[]
 
@@ -379,7 +435,8 @@ function generateReport(){
     variable_uuid:v.variable_uuid,
     name:v.name,
     unit:v.unit,
-    type:v.type,
+    ...(v.nature?{nature:v.nature}:{}),
+    ...(v.role?{role:v.role}:{}),
 
     summary:{
      sum:round2(v.sum),
@@ -388,7 +445,8 @@ function generateReport(){
      max:round2(v.max),
      min:round2(v.min),
      standard_deviation:round2(std),
-     sum_squares:round2(v.sum_sq)
+     sum_squares:round2(v.sum_sq),
+     last:v.count?round2(v.last):null
     },
 
     thresholds:thresholds
@@ -400,80 +458,7 @@ function generateReport(){
   // =========================
   // 🔹 ALARMAS
   // =========================
-  let grouped={}
-
-  // 🔹 CERRADAS
-  for(let a of alarms_history){
-
-   if(a.start < end_range && a.end > start_range){
-
-    if(!grouped[a.alarm_id]){
-
-     grouped[a.alarm_id]={
-
-      alarm_id:a.alarm_id,
-      alarm_name:a.alarm_name,
-      state:1,
-      value:a.value,
-      unit:a.unit,
-
-      ranges:[]
-
-     }
-
-    }
-
-    grouped[a.alarm_id].ranges.push({
-
-     start_alarm_range:
-      Math.max(a.start,start_range),
-
-     end_alarm_range:
-      Math.min(a.end,end_range)
-
-    })
-
-   }
-
-  }
-
-  // 🔹 ACTIVAS
-  for(let id in alarms_active){
-
-   let a=alarms_active[id]
-
-   if(a.start < end_range){
-
-    if(!grouped[a.alarm_id]){
-
-     grouped[a.alarm_id]={
-
-      alarm_id:a.alarm_id,
-      alarm_name:a.alarm_name,
-      state:1,
-      value:a.value,
-      unit:a.unit,
-
-      ranges:[]
-
-     }
-
-    }
-
-    grouped[a.alarm_id].ranges.push({
-
-     start_alarm_range:
-      Math.max(a.start,start_range),
-
-     end_alarm_range:end_range
-
-    })
-
-   }
-
-  }
-
-  let report_alarms=Object.values(grouped)
+  let report_alarms=registro_alarmas.deVentana(device_id,start_range,end_range)
 
   // =========================
   // 🔹 REPORTE FINAL
@@ -500,10 +485,7 @@ function generateReport(){
  // =========================
  // 🔹 LIMPIEZA
  // =========================
- alarms_history=
-  alarms_history.filter(
-   a=>a.end>end_range
-  )
+ registro_alarmas.limpiar(end_range)
 
  thresholds_history=
   thresholds_history.filter(

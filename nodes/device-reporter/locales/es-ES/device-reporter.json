@@ -1,0 +1,11 @@
+{
+    "device-reporter": {
+        "palette": "Reporte por dispositivo",
+        "label": {
+            "interval": "Intervalo del reporte",
+            "seconds": "Segundos",
+            "minutes": "Minutos",
+            "hours": "Horas"
+        }
+    }
+}

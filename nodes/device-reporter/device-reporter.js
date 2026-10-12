@@ -1,10 +1,19 @@
 module.exports = function(RED){
 
+const naturaleza=require("../../resources/naturaleza-variable")
+const alarmas=require("../../resources/alarmas")
+
 function DeviceReporter(config){
 
 RED.nodes.createNode(this,config)
 
 let node=this
+
+// CA8 (spec 007): descarta con un aviso, una vez por clave, un mensaje sin
+// device_uuid o variable_uuid válido; y un variable_uuid repetido con otro
+// nombre en el mismo despliegue (RN5, CA10).
+node.avisosDescartados={}
+node.avisosDuplicado={}
 
 let interval=Number(config.interval)||60
 let unit=config.unit||"seconds"
@@ -18,6 +27,13 @@ let multiplier={
 let interval_ms=interval*(multiplier[unit]||1000)
 
 let devices={}
+
+// Spec 008: alarmas por dispositivo, las que emiten la salida 2 de
+// modbus-variable, la de module-production y alarm-generator. state 1 abre el
+// tramo, state 0 lo cierra, y el paquete las declara en alarms[]. Spec 010: la
+// clave es (device_uuid, catalog, alarm_uuid), la misma en los dos reporters.
+let registro_alarmas=alarmas.crearRegistroDeAlarmas()
+node.avisosAlarma={}
 
 let start_range=Math.floor(Date.now()/1000)
 
@@ -44,31 +60,93 @@ function round2(n){
 
 }
 
+// Vocabulario único de umbrales (gt, gte, eq, lte, lt, between), el mismo que
+// evalúa module-production: vive en resources/naturaleza-variable.js.
 function checkCondition(value,thr){
+ return naturaleza.evaluarUmbral(value,thr)
+}
 
- let v1=Number(thr.value)
- let v2=Number(thr.value2)
+function registrarAlarma(p){
 
- switch(thr.condition){
+ let errores=alarmas.validarAlarma(p)
 
-  case "gt": return value>v1
-  case "gte": return value>=v1
-  case "lt": return value<v1
-  case "lte": return value<=v1
-  case "eq": return value===v1
-  case "between": return value>=v1 && value<=v2
-  default: return false
+ if(errores.length){
+
+  let claveAviso=(p&&p.device_uuid)+"|"+(p&&p.catalog)+"|"+(p&&p.alarm_uuid)
+
+  if(!node.avisosAlarma[claveAviso]){
+   node.avisosAlarma[claveAviso]=true
+   node.error(`alarma descartada: ${errores.join("; ")}`)
+  }
+
+  return
 
  }
+
+ let a=alarmas.normalizarAlarma(p)
+
+ // El dispositivo entra en el informe aunque aún no tenga muestras: una alarma
+ // de comunicación llega precisamente cuando no hay lectura.
+ if(!devices[a.device_uuid]){
+  devices[a.device_uuid]={
+   device_uuid:a.device_uuid,
+   device_name:a.device_name||"",
+   variables:{}
+  }
+ }
+ else if(!devices[a.device_uuid].device_name && a.device_name){
+  devices[a.device_uuid].device_name=a.device_name
+ }
+
+ registro_alarmas.registrar(a)
 
 }
 
 node.on("input",function(msg){
 
+ // Spec 008: el evento de alarma (salida 2 de modbus-variable o module-production,
+ // o la de alarm-generator) trae el device_uuid dentro del payload, no en la raíz
+ // del mensaje. Spec 010: se reconoce por alarm_uuid.
+ if(msg.payload && typeof msg.payload==="object" && msg.payload.alarm_uuid!==undefined){
+  registrarAlarma(msg.payload)
+  return
+ }
+
  if(!msg.device_uuid || msg.payload===undefined) return
 
+ // CA8: sin los dos identificadores válidos, el mensaje se descarta. Antes de
+ // esta spec la clave era el nombre (msg.variable_name||msg.topic); ahora es
+ // el uuid, que es obligatorio en todos los entornos (RN2).
+ if(!naturaleza.esUuidV4(msg.device_uuid) || !naturaleza.esUuidV4(msg.variable_uuid)){
+
+  let claveDescarte=(msg.device_uuid||"?")+"|"+(msg.variable_uuid||msg.variable_name||msg.topic||"?")
+
+  if(!node.avisosDescartados[claveDescarte]){
+   node.avisosDescartados[claveDescarte]=true
+   node.error(`mensaje descartado: device_uuid ("${msg.device_uuid}") o variable_uuid ("${msg.variable_uuid}") no es un uuid v4 válido`)
+  }
+
+  return
+ }
+
+ // Spec 009: nature es obligatoria en el paquete. Una variable que llega sin una
+ // nature válida (no salió de un uso declarado) no se resume ni se publica.
+ if(!naturaleza.NATURALEZAS.includes(msg.nature)){
+
+  let claveNature=msg.device_uuid+"|"+msg.variable_uuid+"|nature"
+
+  if(!node.avisosDescartados[claveNature]){
+   node.avisosDescartados[claveNature]=true
+   node.error(`mensaje descartado: la variable "${msg.variable_name||msg.variable_uuid}" no trae una nature válida (${naturaleza.NATURALEZAS.join(", ")}); declara su uso en el nodo que la genera`)
+  }
+
+  return
+
+ }
+
  let device_id=msg.device_uuid
- let variable=msg.variable_name||msg.topic
+ let variable=msg.variable_uuid
+ let nombreVariable=msg.variable_name||variable
  let value=Number(msg.payload)
  let timestamp=Math.floor((msg.timestamp||Date.now())/1000)
 
@@ -81,6 +159,31 @@ if(!devices[device_id]){
   }
 }
  let device=devices[device_id]
+
+ // RN5/CA10: el mismo variable_uuid con otro nombre EN LA MISMA VENTANA es un
+ // duplicado — se publica solo la primera. `count>0` es "ya hubo una muestra
+ // de esta variable en la ventana en curso"; en la primera muestra de cada
+ // ventana (recién creada o recién reiniciada por generateReport) el nombre
+ // se acepta tal cual, para que un cambio de nombre entre ventanas (E1, CA11)
+ // sí se refleje.
+ if(device.variables[variable] && device.variables[variable].count>0
+   && device.variables[variable].name!==nombreVariable){
+
+  let claveDuplicado=device_id+"|"+variable
+
+  if(!node.avisosDuplicado[claveDuplicado]){
+   node.avisosDuplicado[claveDuplicado]=true
+   node.error(`variable_uuid "${variable}" repetido en "${device_id}" con nombres distintos ("${device.variables[variable].name}" y "${nombreVariable}"); se publica solo la primera`)
+  }
+
+  return
+ }
+
+ if(device.variables[variable]){
+  // Primera muestra de la ventana (o mismo nombre que ya tenía): al nombre se
+  // le permite cambiar de una ventana a otra sin que cambie la identidad.
+  device.variables[variable].name=nombreVariable
+ }
 
  if(!device.variables[variable]){
 
@@ -102,15 +205,24 @@ if(!devices[device_id]){
 
   device.variables[variable]={
 
-   name:variable,
+   name:nombreVariable,
    unit:msg.unit||"",
-   type:msg.type||"instantaneous",
+
+   // Cómo se agrega la ventana de esta variable. Obligatoria: modbus-variable no
+   // emite una variable sin uso válido.
+   nature:msg.nature,
+
+   // En qué cálculo de negocio entra. Opcional.
+   role:msg.role,
 
    sum:0,
    count:0,
    min:null,
    max:null,
    sum_sq:0,
+
+   // Última muestra del intervalo: es el valor de la ventana de un estado.
+   last:null,
 
    thresholds:thrState
 
@@ -123,6 +235,7 @@ if(!devices[device_id]){
  v.sum+=value
  v.count++
  v.sum_sq+=(value*value)
+ v.last=value
 
  if(v.min===null||value<v.min) v.min=value
  if(v.max===null||value>v.max) v.max=value
@@ -196,15 +309,6 @@ if(!devices[device_id]){
 
 })
 
-const conditionText = {
-    gt: ">",
-    gte: ">=",
-    eq: "==",
-    lte: "<=",
-    lt: "<",
-    between: "><"
-};
-
 function generateReport(){
 
  let end_range=Math.floor(Date.now()/1000)
@@ -263,7 +367,8 @@ function generateReport(){
     thresholds.push({
 
      threshold_id:thr.config.name,
-     validation: conditionText[thr.config.condition] || thr.config.condition,
+     // El código de la condición (gt, gte, eq, lte, lt, between), no un símbolo.
+     validation: naturaleza.normalizarCondicion(thr.config.condition),
      value:thr.config.value,
      value2:thr.config.value2||null,
 
@@ -278,7 +383,8 @@ function generateReport(){
     variable_uuid:key,
     name:v.name,
     unit:v.unit,
-    type:v.type,
+    ...(v.nature?{nature:v.nature}:{}),
+    ...(v.role?{role:v.role}:{}),
 
     summary:{
 
@@ -288,7 +394,8 @@ function generateReport(){
      max:round2(v.max),
      min:round2(v.min),
      standard_deviation:round2(std),
-     sum_squares:round2(v.sum_sq)
+     sum_squares:round2(v.sum_sq),
+     last:v.count?round2(v.last):null
 
     },
 
@@ -307,7 +414,9 @@ function generateReport(){
     start_range:start_range,
     end_range:end_range,
 
-    data:data
+    data:data,
+
+    alarms:registro_alarmas.deVentana(device.device_uuid,start_range,end_range)
 
   }
 
@@ -329,6 +438,7 @@ function generateReport(){
         v.min = null
         v.max = null
         v.sum_sq = 0
+        v.last = null
 
         // Limpiar los rangos ya reportados
         for(let thr of v.thresholds){
@@ -338,6 +448,8 @@ function generateReport(){
     }
 
 }
+
+registro_alarmas.limpiar(end_range)
 
 start_range = end_range
 

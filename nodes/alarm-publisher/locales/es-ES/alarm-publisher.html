@@ -1,0 +1,18 @@
+<script type="text/html" data-help-name="alarm-publisher">
+    <p>Lleva cada cambio de alarma <b>al instante</b> al broker; no decide nada. Cuándo hay alarma lo decide el nodo que la detecta
+    (<code>module-production</code>, <code>modbus-variable</code> o <code>alarm-generator</code>).</p>
+
+    <h3>Entrada</h3>
+    <p>El mensaje de alarma de cualquiera de las tres fuentes (salida 2 de <code>module-production</code> y de <code>modbus-variable</code>, y la
+    salida de <code>alarm-generator</code>). Valida <code>device_uuid</code>, <code>catalog</code>, <code>alarm_uuid</code> y el resto del contrato;
+    un mensaje inválido no se publica y se escribe un aviso por equipo en el registro.</p>
+
+    <h3>Salida</h3>
+    <p>Se conecta a un nodo <code>mqtt out</code> estándar con el <b>topic vacío</b> y el mismo broker que el <code>Sender</code>. Pone
+    <code>msg.topic = mentor_alarms/&lt;device_uuid&gt;</code>, <code>msg.qos = 1</code> y <code>msg.retain = false</code>, y el payload es el evento
+    <code>alarm-event/v1</code>: <code>event_uuid</code> (uuid v4 por evento), <code>changed_at</code> (instante real del cambio, ms) y
+    <code>emitted_at</code> (cuándo se emite, ms), más los campos de la alarma. <code>value</code> es un número o <code>null</code>.</p>
+
+    <p>No hay cola ni mensaje retenido: si el broker no está, el evento se pierde y lo corrige el paquete del minuto (que sí pasa por la cola).
+    Solo se configura el nombre: ningún tiempo.</p>
+</script>

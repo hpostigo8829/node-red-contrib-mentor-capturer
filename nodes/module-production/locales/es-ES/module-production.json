@@ -1,0 +1,76 @@
+{
+    "module-production": {
+        "palette": "Módulo de producción",
+        "section": {
+            "general": "CONFIGURACIÓN GENERAL",
+            "count1": "SENSOR DE CONTEO 1 (obligatorio)",
+            "count2": "SENSOR DE CONTEO 2 (opcional)",
+            "presence": "PRESENCIA (opcional)",
+            "diagnostics": "DIAGNÓSTICO ENTRE SENSORES",
+            "blocking": "BLOQUEO DE SENSORES",
+            "debug": "DIAGNÓSTICO"
+        },
+        "label": {
+            "generate": "Generar",
+            "sampleInterval": "Intervalo de muestra",
+            "seconds": "s",
+            "input": "Entrada",
+            "none": "ninguna",
+            "enable": "activar",
+            "pulses": "Pulsos",
+            "timeMinutes": "Tiempo (minutos)",
+            "timeSeconds": "Tiempo (segundos)",
+            "debugOutput": "● Activar la salida de diagnóstico"
+        },
+        "alarm": {
+            "a1": "1.- Sensor de conteo desalineado",
+            "a2": "2.- Sensor de presencia desconectado",
+            "a3": "3.- Sensor de conteo bloqueado",
+            "a4": "4.- Sensor de presencia desalineado",
+            "a5": "5.- Falla del sensor de conteo 1",
+            "a6": "6.- Falla del sensor de conteo 2"
+        },
+        "fila": {
+            "name": "Nombre",
+            "variableUuid": "Variable UUID",
+            "generate": "Generar",
+            "unit": "Unidad",
+            "unitWarning": "Esta unidad no está en la lista sugerida. Se acepta como texto libre; revisa que esté bien escrita.",
+            "usage": "Uso",
+            "chooseUsage": "— elegir el uso —",
+            "fixed": "(fijo)",
+            "notValidHere": "__usage__ (no válido aquí)",
+            "reading": "Lectura",
+            "choose": "— elegir —",
+            "mode": {
+                "pulses": "Pulsos (el registro ya es lo contado)",
+                "running_total": "Totalizador (el capturador resta la lectura anterior)"
+            },
+            "cond": {
+                "gt": "Mayor (>)",
+                "gte": "Mayor o igual (>=)",
+                "eq": "Igual (=)",
+                "lte": "Menor o igual (<=)",
+                "lt": "Menor (<)",
+                "between": "Entre (dentro de la banda)"
+            },
+            "thresholds": "Umbrales (__count__)",
+            "addThreshold": "+ añadir umbral",
+            "thresholdName": "Nombre",
+            "value": "Valor",
+            "value2": "Valor 2",
+            "locked": "🔒 automático",
+            "lockedTitle": "Lo añade el uso «Conteo de producción»; marca los segundos sin conteo",
+            "usos": {
+                "production_count": "Conteo de producción",
+                "production_count_redundant": "Conteo de verificación",
+                "energy_active": "Energía activa (kWh)",
+                "energy_reactive": "Energía reactiva (kVArh)",
+                "counter": "Contador sin papel",
+                "meter_reading": "Lectura acumulada sin papel",
+                "measurement": "Medida instantánea",
+                "state": "Estado"
+            }
+        }
+    }
+}

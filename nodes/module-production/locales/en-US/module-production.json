@@ -1,0 +1,76 @@
+{
+    "module-production": {
+        "palette": "Module Production",
+        "section": {
+            "general": "GENERAL CONFIGURATION",
+            "count1": "COUNT SENSOR 1 (required)",
+            "count2": "COUNT SENSOR 2 (optional)",
+            "presence": "PRESENCE (optional)",
+            "diagnostics": "DIAGNOSTICS BETWEEN SENSORS",
+            "blocking": "SENSOR BLOCKING",
+            "debug": "DIAGNOSTICS"
+        },
+        "label": {
+            "generate": "Generate",
+            "sampleInterval": "Sample interval",
+            "seconds": "s",
+            "input": "Input",
+            "none": "none",
+            "enable": "enable",
+            "pulses": "Pulses",
+            "timeMinutes": "Time (minutes)",
+            "timeSeconds": "Time (seconds)",
+            "debugOutput": "● Enable diagnostics output"
+        },
+        "alarm": {
+            "a1": "1.- Misaligned count sensor",
+            "a2": "2.- Presence sensor disconnected",
+            "a3": "3.- Blocked count sensor",
+            "a4": "4.- Misaligned presence sensor",
+            "a5": "5.- Count sensor 1 failure",
+            "a6": "6.- Count sensor 2 failure"
+        },
+        "fila": {
+            "name": "Name",
+            "variableUuid": "Variable UUID",
+            "generate": "Generate",
+            "unit": "Unit",
+            "unitWarning": "This unit is not in the suggested list. It is accepted as free text; check that it is spelled correctly.",
+            "usage": "Usage",
+            "chooseUsage": "— choose the usage —",
+            "fixed": "(fixed)",
+            "notValidHere": "__usage__ (not valid here)",
+            "reading": "Reading",
+            "choose": "— choose —",
+            "mode": {
+                "pulses": "Pulses (the register already is what was counted)",
+                "running_total": "Running total (the capturer subtracts the previous reading)"
+            },
+            "cond": {
+                "gt": "Greater (>)",
+                "gte": "Greater or equal (>=)",
+                "eq": "Equal (=)",
+                "lte": "Less or equal (<=)",
+                "lt": "Less (<)",
+                "between": "Between (inside the band)"
+            },
+            "thresholds": "Thresholds (__count__)",
+            "addThreshold": "+ add threshold",
+            "thresholdName": "Name",
+            "value": "Value",
+            "value2": "Value 2",
+            "locked": "🔒 automatic",
+            "lockedTitle": "Added by the usage «Production count»; it marks the seconds without counting",
+            "usos": {
+                "production_count": "Production count",
+                "production_count_redundant": "Verification count",
+                "energy_active": "Active energy (kWh)",
+                "energy_reactive": "Reactive energy (kVArh)",
+                "counter": "Counter without role",
+                "meter_reading": "Accumulated reading without role",
+                "measurement": "Instantaneous measurement",
+                "state": "State"
+            }
+        }
+    }
+}

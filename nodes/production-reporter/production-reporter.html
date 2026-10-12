@@ -24,10 +24,12 @@ RED.nodes.registerType('production-reporter',{
  inputs:1,
  outputs:1,
  icon:"file.png",
- paletteLabel:"Production Reporter",
+ paletteLabel:function(){
+  return this._("production-reporter.palette")
+ },
 
  label:function(){
-  return this.name || "Production Reporter"
+  return this.name || this._("production-reporter.palette")
  }
 
 })
@@ -37,12 +39,12 @@ RED.nodes.registerType('production-reporter',{
 <script type="text/x-red" data-template-name="production-reporter">
 
 <div class="form-row">
- <label>Name</label>
+ <label for="node-input-name" data-i18n="node-red:common.label.name"></label>
  <input type="text" id="node-input-name">
 </div>
 
 <div class="form-row">
- <label>Report Interval</label>
+ <label data-i18n="production-reporter.label.interval"></label>
 
  <div class="production-report-config">
 
@@ -52,45 +54,13 @@ RED.nodes.registerType('production-reporter',{
    min="1">
 
   <select id="node-input-unit" style="width:130px;">
-   <option value="seconds">Seconds</option>
-   <option value="minutes">Minutes</option>
-   <option value="hours">Hours</option>
+   <option value="seconds" data-i18n="production-reporter.label.seconds"></option>
+   <option value="minutes" data-i18n="production-reporter.label.minutes"></option>
+   <option value="hours" data-i18n="production-reporter.label.hours"></option>
   </select>
 
  </div>
 
 </div>
-
-</script>
-
-<script type="text/x-red" data-help-name="production-reporter">
-
-<p>
-Generates production reports by aggregating sensor data and alarm events over a configurable time interval.
-</p>
-
-<h3>Input</h3>
-<ul>
-<li><b>Sensors:</b> Messages with <code>msg.variables</code></li>
-<li><b>Alarms:</b> Messages with <code>msg.payload.alarm_name</code></li>
-</ul>
-
-<h3>Output</h3>
-<p>
-Emits a consolidated report with:
-</p>
-<ul>
-<li><code>device_uuid</code></li>
-<li><code>device_name</code></li>
-<li><code>variables</code> (accumulated count)</li>
-<li><code>alarms</code> (activation ranges)</li>
-<li><code>start_range</code> / <code>end_range</code></li>
-</ul>
-
-<h3>Configuration</h3>
-<p>
-Sets how often the report is generated:
-seconds, minutes, or hours.
-</p>
 
 </script>

@@ -1,0 +1,11 @@
+{
+    "production-reporter": {
+        "palette": "Production Reporter",
+        "label": {
+            "interval": "Report Interval",
+            "seconds": "Seconds",
+            "minutes": "Minutes",
+            "hours": "Hours"
+        }
+    }
+}

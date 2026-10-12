@@ -1,0 +1,35 @@
+{
+    "alarm-generator": {
+        "palette": "Alarm Generator",
+        "label": {
+            "origin": "Origin",
+            "variable": "Variable",
+            "threshold": "Threshold",
+            "variableUuid": "Variable UUID",
+            "thresholdName": "Threshold name",
+            "alarmName": "Alarm name",
+            "generate": "Generate",
+            "severity": "Severity",
+            "activate": "Activate after",
+            "release": "Release after",
+            "seconds": "s",
+            "margin": "Release margin"
+        },
+        "severity": {
+            "info": "info (history only)",
+            "warning": "warning",
+            "critical": "critical"
+        },
+        "tips": {
+            "noOrigin": "Origin not detected: connect a single modbus-variable or module-production directly to the input (output 1), or type the variable UUID and the threshold name by hand.",
+            "cadence": "Activate or release is shorter than the reading period of the variable: the node sees one reading per cycle, so the real delay will not be shorter than that."
+        },
+        "status": {
+            "waiting": "waiting",
+            "ok": "OK",
+            "activating": "activating",
+            "active": "ACTIVE",
+            "invalid": "invalid configuration"
+        }
+    }
+}

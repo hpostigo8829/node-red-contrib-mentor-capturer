@@ -1,17 +1,105 @@
+<script type="text/javascript" src="resources/node-red-contrib-mentor-capturer/naturaleza-variable.js"></script>
+<script type="text/javascript" src="resources/node-red-contrib-mentor-capturer/fila-variable.js"></script>
+
 <script type="text/javascript">
+
+var reglas = MentorNaturalezaVariable;
+
+// Un sensor de conteo es válido con nombre, uso de conteo y los umbrales bien
+// escritos, y —si su uso es «Conteo de producción»— con su umbral de conteo cero.
+function sensorDeConteoValido(nodo, sensor) {
+
+    if (typeof MentorNaturalezaVariable === "undefined") return true;
+
+    const variable = MentorNaturalezaVariable.variableDeSensor(nodo, sensor);
+
+    return !!variable.name
+        && MentorNaturalezaVariable.validarSensorDeConteo(variable).length === 0
+        && MentorNaturalezaVariable.avisosDeConfiguracion(variable).length === 0;
+}
+
 RED.nodes.registerType('module-production', {
     category: 'mentor-capturer',
     color: '#87CEFA',
     defaults: {
         name: { value: "" },
 
-        device_uuid: { value: "" },
-        device_name: { value: "" },
-        report_interval: { value: 10 },
+        device_uuid: {
+            value: "",
+            required: true,
+            validate: function (v) {
+                if (typeof MentorNaturalezaVariable === "undefined") return true;
+                return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v));
+            }
+        },
+        device_name: { value: "", required: true },
+
+        // Intervalo de muestra (spec 010, D13): segundos entre muestras, un divisor
+        // de 60. Un flujo sin el campo queda en 1 s.
+        sample_interval: {
+            value: 1,
+            validate: function (v) {
+                if (v === "" || v === undefined || v === null) return true;
+                if (typeof MentorNaturalezaVariable === "undefined") return true;
+                return MentorNaturalezaVariable.INTERVALOS_DE_MUESTRA.indexOf(Number(v)) !== -1;
+            }
+        },
 
         sc1_topic: { value: "gpio/4" },
         sc2_topic: { value: "" },
         sp_topic:  { value: "" },
+
+        // Cada sensor es una variable: nombre, uuid, unidad, uso y umbrales
+        // propios (spec 009). La presencia es solo un estado: sin unidad ni
+        // umbrales.
+        sc1_name: { value: "SENSOR DE CONTEO 1" },
+        sc1_unit: { value: "und" },
+        sc1_usage: {
+            value: "",
+            validate: function () {
+                return sensorDeConteoValido(this, "sc1");
+            }
+        },
+        sc1_thresholds: { value: [] },
+
+        sc2_name: { value: "SENSOR DE CONTEO 2" },
+        sc2_unit: { value: "und" },
+        sc2_usage: {
+            value: "",
+            validate: function () {
+                if (!this.sc2_topic) return true;
+                return sensorDeConteoValido(this, "sc2");
+            }
+        },
+        sc2_thresholds: { value: [] },
+
+        sp_name: { value: "SENSOR DE PRESENCIA" },
+
+        // Identificadores por sensor (spec 007): obligatorio solo si el
+        // sensor está activado (CA2). SC1 siempre lo está.
+        uuid_sc1: {
+            value: "",
+            validate: function (v) {
+                if (typeof MentorNaturalezaVariable === "undefined") return true;
+                return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v));
+            }
+        },
+        uuid_sc2: {
+            value: "",
+            validate: function (v) {
+                if (typeof MentorNaturalezaVariable === "undefined") return true;
+                if (!this.sc2_topic) return true;
+                return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v));
+            }
+        },
+        uuid_sp: {
+            value: "",
+            validate: function (v) {
+                if (typeof MentorNaturalezaVariable === "undefined") return true;
+                if (!this.sp_topic) return true;
+                return MentorNaturalezaVariable.esUuidV4(MentorNaturalezaVariable.normalizarUuid(v));
+            }
+        },
 
         th_sc1_desalineado: { value: 6 },
         th_sp_desconectado: { value: 6 },
@@ -29,19 +117,33 @@ RED.nodes.registerType('module-production', {
 
         enable_debug: { value: false },
 
+        // Heredados de antes del uso de la variable (papel por sensor y lista de
+        // umbrales común). Se declaran para que el editor pueda leer un flujo
+        // antiguo y deducir de ahí el uso; al guardar quedan vacíos.
+        sc1_role: { value: "" },
+        sc2_role: { value: "" },
         thresholds: { value: [] }
     },
 
     inputs: 1,
     outputs: 3,
     icon: "setup.png",
-    paletteLabel: "Module Production",
+    paletteLabel: function () {
+        return this._("module-production.palette");
+    },
 
     label: function () {
-        return this.name || "Module Production";
+        return this.name || this._("module-production.palette");
     },
 
     oneditprepare: function () {
+
+        const node = this;
+
+        $("#btn-generar-device-uuid").on("click", function (e) {
+            e.preventDefault();
+            $("#node-input-device_uuid").val(reglas.nuevoUuidV4());
+        });
 
         const IO_MAP = {
             "IN01": "gpio/4",
@@ -65,7 +167,7 @@ RED.nodes.registerType('module-production', {
                 select.append(
                     $('<option></option>')
                         .val("")
-                        .text("none")
+                        .text(node._("module-production.label.none"))
                 );
             }
 
@@ -89,126 +191,78 @@ RED.nodes.registerType('module-production', {
 
             const val = $("#" + selectId).val();
 
-            $("#" + labelId).text(val || "none");
+            $("#" + labelId).text(val || node._("module-production.label.none"));
         }
 
         fillSelect("node-input-sc1_topic", this.sc1_topic, false);
         fillSelect("node-input-sc2_topic", this.sc2_topic, true);
         fillSelect("node-input-sp_topic", this.sp_topic, true);
 
-        updateLabel("node-input-sc1_topic", "label-sc1");
-        updateLabel("node-input-sc2_topic", "label-sc2");
-        updateLabel("node-input-sp_topic", "label-sp");
+        // Un sensor sin entrada elegida no se configura: su bloque se oculta.
+        function alCambiarEntrada(selectId, labelId, bloqueId) {
+            updateLabel(selectId, labelId);
+            $("#" + bloqueId).toggle(!!$("#" + selectId).val());
+        }
 
-        $("#node-input-sc1_topic").on("change", function () {
-            updateLabel("node-input-sc1_topic", "label-sc1");
-        });
-
-        $("#node-input-sc2_topic").on("change", function () {
-            updateLabel("node-input-sc2_topic", "label-sc2");
-        });
-
-        $("#node-input-sp_topic").on("change", function () {
-            updateLabel("node-input-sp_topic", "label-sp");
+        [
+            ["node-input-sc1_topic", "label-sc1", "bloque-sc1"],
+            ["node-input-sc2_topic", "label-sc2", "bloque-sc2"],
+            ["node-input-sp_topic", "label-sp", "bloque-sp"]
+        ].forEach(function (p) {
+            $("#" + p[0]).on("change", function () { alCambiarEntrada(p[0], p[1], p[2]); });
+            alCambiarEntrada(p[0], p[1], p[2]);
         });
 
         // =========================
-        // THRESHOLDS
+        // VARIABLES DE LOS SENSORES
         // =========================
-        $("#threshold-list").editableList({
+        // variableDeSensor() lee lo guardado, también por versiones anteriores
+        // (papel y umbrales comunes), y deduce el uso.
+        const soloConteo = function (uso) { return uso.nature === "increment"; };
 
-            addItem: function (container, i, opt) {
+        // Los textos del formulario común salen del catálogo de este nodo (clave
+        // fila.*), en el idioma del editor.
+        const t = function (clave, variables) { return node._("module-production.fila." + clave, variables); };
 
-                opt = opt || {};
+        // El intervalo de muestra es un número: el editor lo guarda tal cual.
+        $("#node-input-sample_interval").val(String(node.sample_interval || 1));
 
-                const row = $('<div/>').appendTo(container);
-
-                // TARGET
-                const target = $('<select/>', {
-                    class: "threshold-target",
-                    style: "width:15%; margin-right:5px;"
-                }).appendTo(row);
-
-                [
-                    {v:"sc1", t:"SC1"},
-                    {v:"sc2", t:"SC2"}
-                ].forEach(o=>{
-                    target.append(
-                        $('<option/>')
-                            .val(o.v)
-                            .text(o.t)
-                    );
-                });
-
-                target.val(opt.target || "sc1");
-
-                // NAME
-                $('<input/>', {
-                    type: "text",
-                    class: "threshold-name",
-                    placeholder: "Name",
-                    style: "width:40%; margin-right:5px;"
-                })
-                .val(opt.name || "")
-                .appendTo(row);
-
-                // CONDITION
-                const condition = $('<select/>', {
-                    class: "threshold-condition",
-                    style: "width:15%; margin-right:5px;"
-                }).appendTo(row);
-
-                [
-                    {v:"<=", t:"<="},
-                    {v:">=", t:">="},
-                    {v:"==", t:"=="}
-                ].forEach(c=>{
-                    condition.append(
-                        $('<option/>')
-                            .val(c.v)
-                            .text(c.t)
-                    );
-                });
-
-                condition.val(opt.condition || ">=");
-
-                // VALUE
-                $('<input/>', {
-                    type: "number",
-                    class: "threshold-value",
-                    placeholder: "Value",
-                    style: "width:20%;"
-                })
-                .val(opt.value ?? "")
-                .appendTo(row);
-            },
-
-            removable: true,
-            sortable: true
-        });
-
-        (this.thresholds || []).forEach(t => {
-            $("#threshold-list").editableList('addItem', t);
-        });
+        // Los formularios se guardan en su propio bloque, no en el nodo.
+        $("#variable-sc1").data("fila", MentorFilaVariable.crear($("#variable-sc1"), reglas.variableDeSensor(node, "sc1"), { usos: soloConteo, t: t }));
+        $("#variable-sc2").data("fila", MentorFilaVariable.crear($("#variable-sc2"), reglas.variableDeSensor(node, "sc2"), { usos: soloConteo, t: t }));
+        $("#variable-sp").data("fila", MentorFilaVariable.crear($("#variable-sp"), reglas.variableDeSensor(node, "sp"), {
+            usoFijo: "state",
+            conUnidad: false,
+            conUmbrales: false,
+            t: t
+        }));
     },
 
     oneditsave: function () {
 
-        let thresholds = [];
+        const node = this;
 
-        $("#threshold-list").editableList('items').each(function () {
-
-            const row = $(this);
-
-            thresholds.push({
-                target: row.find(".threshold-target").val(),
-                name: row.find(".threshold-name").val(),
-                condition: row.find(".threshold-condition").val(),
-                value: Number(row.find(".threshold-value").val())
-            });
+        // El uso decide nature y role: no se guardan. Se guardan el nombre, el uuid
+        // (recortado y en minúsculas si es válido: CA5 de la spec 007), la unidad, el
+        // uso y los umbrales de cada sensor, con el mismo formato que modbus-variable.
+        ["sc1", "sc2"].forEach(function (sensor) {
+            const fila = $("#variable-" + sensor).data("fila");
+            Object.assign(node, reglas.camposDeSensor(sensor, reglas.guardarVariable(fila.leer())));
         });
 
-        this.thresholds = thresholds;
+        const filaSp = $("#variable-sp").data("fila");
+        Object.assign(node, reglas.camposDeSensor("sp", filaSp.leer()));
+
+        Object.assign(node, {
+            sc1_role: "",
+            sc2_role: "",
+            thresholds: []
+        });
+
+        // Intervalo de muestra: número, no texto del desplegable.
+        node.sample_interval = Number($("#node-input-sample_interval").val()) || 1;
+
+        $("#node-input-device_uuid").val(reglas.normalizarUuid($("#node-input-device_uuid").val()));
     }
 });
 </script>
@@ -216,18 +270,19 @@ RED.nodes.registerType('module-production', {
 <script type="text/html" data-template-name="module-production">
 
     <div class="form-row">
-        <label>Name</label>
+        <label for="node-input-name" data-i18n="node-red:common.label.name"></label>
         <input type="text" id="node-input-name">
     </div>
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>GENERAL CONFIGURATION</b></label>
+        <label style="width:100%"><b data-i18n="module-production.section.general"></b></label>
     </div>
 
     <div class="form-row">
         <label style="width:180px">Device UUID</label>
         <input type="text" id="node-input-device_uuid" style="width:140px">
+        <button type="button" id="btn-generar-device-uuid" class="red-ui-button" style="margin-left:6px" data-i18n="module-production.label.generate"></button>
     </div>
 
     <div class="form-row">
@@ -236,183 +291,162 @@ RED.nodes.registerType('module-production', {
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Interval</label>
-        <input type="number" id="node-input-report_interval" style="width:100px">
-        <span style="margin-left:5px">sec</span>
+        <label style="width:180px" data-i18n="module-production.label.sampleInterval"></label>
+        <select id="node-input-sample_interval" style="width:80px">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="10">10</option>
+            <option value="12">12</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="60">60</option>
+        </select>
+        <span data-i18n="module-production.label.seconds"></span>
     </div>
 
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>SENSOR CONFIGURATION</b></label>
+        <label style="width:100%"><b data-i18n="module-production.section.count1"></b></label>
     </div>
 
     <div class="form-row">
-        <label style="width:180px">Count 1 (required)</label>
+        <label style="width:180px" data-i18n="module-production.label.input"></label>
         <select id="node-input-sc1_topic" style="width:80px"></select>
         <span id="label-sc1" style="margin-left:10px; color:#666"></span>
     </div>
 
+    <div id="bloque-sc1"><div id="variable-sc1"></div></div>
+
+    <hr>
     <div class="form-row">
-        <label style="width:180px">Count 2</label>
+        <label style="width:100%"><b data-i18n="module-production.section.count2"></b></label>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px" data-i18n="module-production.label.input"></label>
         <select id="node-input-sc2_topic" style="width:80px"></select>
         <span id="label-sc2" style="margin-left:10px; color:#666"></span>
     </div>
 
+    <div id="bloque-sc2"><div id="variable-sc2"></div></div>
+
+    <hr>
     <div class="form-row">
-        <label style="width:180px">Presence</label>
+        <label style="width:100%"><b data-i18n="module-production.section.presence"></b></label>
+    </div>
+
+    <div class="form-row">
+        <label style="width:180px" data-i18n="module-production.label.input"></label>
         <select id="node-input-sp_topic" style="width:80px"></select>
         <span id="label-sp" style="margin-left:10px; color:#666"></span>
     </div>
 
+    <div id="bloque-sp"><div id="variable-sp"></div></div>
+
     <hr>
     <div class="form-row">
-        <label style="width:100%"><b>ALARM CONFIGURATION</b></label>
+        <label style="width:100%"><b data-i18n="module-production.section.diagnostics"></b></label>
     </div>
 
     <!-- ALARM 1 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>1.- Misaligned count sensor</strong></label>
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a1"></strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm1"> enable
+        <input type="checkbox" id="node-input-enable_alarm1"> <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Pulses</label>
+    <label style="width:180px" data-i18n="module-production.label.pulses"></label>
     <input type="number" id="node-input-th_sc1_desalineado" style="width:100px">
 </div>
 
 <!-- ALARM 2 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>2.- Presence sensor disconnected</strong></label>
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a2"></strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm2"> enable
+        <input type="checkbox" id="node-input-enable_alarm2"> <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Pulses</label>
+    <label style="width:180px" data-i18n="module-production.label.pulses"></label>
     <input type="number" id="node-input-th_sp_desconectado" style="width:100px">
-</div>
-
-<!-- ALARM 3 -->
-<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>3.- Blocked count sensor</strong></label>
-    <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm3"> enable
-    </label>
-</div>
-<div class="form-row">
-    <label style="width:180px">Time (seconds)</label>
-    <input type="number" id="node-input-th_sc1_blocked_sec" style="width:100px">
 </div>
 
 <!-- ALARM 4 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>4.- Misaligned presence sensor</strong></label>
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a4"></strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm4"> enable
+        <input type="checkbox" id="node-input-enable_alarm4"> <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Time (minutes)</label>
+    <label style="width:180px" data-i18n="module-production.label.timeMinutes"></label>
     <input type="number" id="node-input-th_sp_desalineado" style="width:100px">
+</div>
+
+    <hr>
+    <div class="form-row">
+        <label style="width:100%"><b data-i18n="module-production.section.blocking"></b></label>
+    </div>
+
+<!-- ALARM 3 -->
+<div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a3"></strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm3"> <span data-i18n="module-production.label.enable"></span>
+    </label>
+</div>
+<div class="form-row">
+    <label style="width:180px" data-i18n="module-production.label.timeSeconds"></label>
+    <input type="number" id="node-input-th_sc1_blocked_sec" style="width:100px">
 </div>
 
 <!-- ALARM 5 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>5.- Count sensor 1 failure</strong></label>
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a5"></strong></label>
     <label style="font-size:12px; white-space:nowrap;">
-        <input type="checkbox" id="node-input-enable_alarm5"> enable
+        <input type="checkbox" id="node-input-enable_alarm5"> <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Time (minutes)</label>
+    <label style="width:180px" data-i18n="module-production.label.timeMinutes"></label>
     <input type="number" id="node-input-th_sc1_blocked_min" style="width:100px">
 </div>
 
 <!-- ALARM 6 -->
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
-    <label style="white-space:nowrap;"><strong>6.- Count sensor 2 failure</strong></label>
-    <label style="font-size:12px; white-space:nowrap;"> 
-        <input type="checkbox" id="node-input-enable_alarm6"> enable
+    <label style="white-space:nowrap;"><strong data-i18n="module-production.alarm.a6"></strong></label>
+    <label style="font-size:12px; white-space:nowrap;">
+        <input type="checkbox" id="node-input-enable_alarm6"> <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
 <div class="form-row">
-    <label style="width:180px">Time (minutes)</label>
+    <label style="width:180px" data-i18n="module-production.label.timeMinutes"></label>
     <input type="number" id="node-input-th_sc2_blocked_min" style="width:100px">
 </div>
 
     <hr>
-    <div class="form-row">
-        <label style="width:100%"><b>THRESHOLD CONFIGURATION</b></label>
-    </div>
-
-    <div class="form-row">
-        <ol id="threshold-list"></ol>
-    </div>
-    <hr>
 
 <div class="form-row">
     <label style="width:100%">
-        <b>DIAGNOSTICS</b>
+        <b data-i18n="module-production.section.debug"></b>
     </label>
 </div>
 
 <div class="form-row" style="display:flex; align-items:center; justify-content:space-between;">
     <label style="white-space:nowrap;">
-        <strong>● Enable diagnostics output</strong>
+        <strong data-i18n="module-production.label.debugOutput"></strong>
     </label>
 
     <label style="font-size:12px; white-space:nowrap;">
         <input type="checkbox" id="node-input-enable_debug">
-        enable
+        <span data-i18n="module-production.label.enable"></span>
     </label>
 </div>
-
-</script>
-
-<script type="text/html" data-help-name="module-production">
-
-<p>Monitors count and presence sensors of a production module (via GPIOs), evaluates 6 predefined operation alarms
-(misalignment, blockage, sensor failure, disconnection), evaluates configurable thresholds on the counts,
-and emits a periodic production report.</p>
-
-<h3>Configuration</h3>
-<dl class="message-properties">
-    <dt>General configuration</dt>
-    <dd><code>Device UUID</code>, <code>Device Name</code>, report interval (seconds).</dd>
-    <dt>Sensor configuration</dt>
-    <dd>GPIO input for Count 1 (required), Count 2 (optional), and Presence (optional).</dd>
-    <dt>Alarm configuration</dt>
-    <dd>6 predefined alarms, each with an enable checkbox and its time/pulse threshold:
-    1. Misaligned count sensor · 2. Presence sensor disconnected · 3. Blocked count sensor ·
-    4. Misaligned presence sensor · 5. Count sensor 1 failure · 6. Count sensor 2 failure.</dd>
-    <dt>Threshold configuration</dt>
-    <dd>Additional user-defined thresholds on SC1 or SC2 (name, condition <code><=</code>/<code>>=</code>/<code>==</code>, value).</dd>
-    <dt>Diagnostics</dt>
-    <dd>Enables an extra output with the node's full internal state, for debugging.</dd>
-</dl>
-
-<h3>Outputs</h3>
-<ol class="node-ports">
-    <li>Production report
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">object</span></dt>
-            <dd>Every report interval, a message with the counts, state, and evaluated thresholds
-            (<code>condition_met</code>) for each sensor.</dd>
-        </dl>
-    </li>
-    <li>Alarms
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">object</span></dt>
-            <dd>Emitted whenever one of the 6 predefined (enabled) alarms changes state (<code>state: 1</code>/<code>0</code>).</dd>
-        </dl>
-    </li>
-    <li>Diagnostics
-        <dl class="message-properties">
-            <dt>payload <span class="property-type">object</span></dt>
-            <dd>Only if enabled — the node's full internal state (context, counts, last states) for debugging.</dd>
-        </dl>
-    </li>
-</ol>
 
 </script>

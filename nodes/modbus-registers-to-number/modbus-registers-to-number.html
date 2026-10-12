@@ -2,14 +2,14 @@
 
     <div class="form-row">
         <label for="node-input-name">
-            <i class="fa fa-tag"></i> Name
+            <i class="fa fa-tag"></i> <span data-i18n="node-red:common.label.name"></span>
         </label>
         <input type="text" id="node-input-name">
     </div>
 
     <div class="form-row">
         <label for="node-input-tipo">
-            <i class="fa fa-cogs"></i> Data Type
+            <i class="fa fa-cogs"></i> <span data-i18n="modbus-registers-to-number.label.dataType"></span>
         </label>
         <select id="node-input-tipo">
             <option value="INT16">INT16</option>
@@ -24,22 +24,18 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-byteOrder">
-            Byte Order
-        </label>
+        <label for="node-input-byteOrder" data-i18n="modbus-registers-to-number.label.byteOrder"></label>
         <select id="node-input-byteOrder">
-            <option value="BE">Big Endian</option>
-            <option value="LE">Little Endian</option>
+            <option value="BE" data-i18n="modbus-registers-to-number.label.bigEndian"></option>
+            <option value="LE" data-i18n="modbus-registers-to-number.label.littleEndian"></option>
         </select>
     </div>
 
     <div class="form-row">
-        <label for="node-input-wordOrder">
-            Word Order
-        </label>
+        <label for="node-input-wordOrder" data-i18n="modbus-registers-to-number.label.wordOrder"></label>
         <select id="node-input-wordOrder">
-            <option value="normal">Normal</option>
-            <option value="swap">Swap</option>
+            <option value="normal" data-i18n="modbus-registers-to-number.label.normal"></option>
+            <option value="swap" data-i18n="modbus-registers-to-number.label.swap"></option>
         </select>
     </div>
 
@@ -58,31 +54,11 @@ RED.nodes.registerType('modbus-registers-to-number',{
     inputs: 1,
     outputs: 1,
     icon: "modbus.png",
-    paletteLabel: "Modbus Registers To Number",
+    paletteLabel: function() {
+        return this._("modbus-registers-to-number.palette");
+    },
     label: function() {
-        return this.name || "Modbus Registers To Number";
+        return this.name || this._("modbus-registers-to-number.palette");
     }
 });
-</script>
-
-<script type="text/html" data-help-name="modbus-registers-to-number">
-
-<p>Converts an array of Modbus registers (16-bit) into a number, based on the configured data type, byte order, and word order.</p>
-
-<h3>Configuration</h3>
-<dl class="message-properties">
-    <dt>Data Type</dt>
-    <dd>Output numeric type (<code>INT16</code>, <code>UINT16</code>, <code>INT32</code>, <code>UINT32</code>, <code>FLOAT32</code>, <code>INT64</code>, <code>UINT64</code>, <code>FLOAT64</code>).</dd>
-    <dt>Byte Order</dt>
-    <dd>Byte order within the value (Big Endian / Little Endian) — applies to 32-bit and 64-bit types.</dd>
-    <dt>Word Order</dt>
-    <dd>Order of the registers when the value spans more than one (Normal / Swap).</dd>
-</dl>
-
-<h3>Input</h3>
-<p><code>msg.payload</code> must be an array of registers (16-bit integers), such as the ones returned by a Modbus read.</p>
-
-<h3>Output</h3>
-<p><code>msg.payload</code> is replaced with the resulting number, based on the configured Data Type.</p>
-
 </script>

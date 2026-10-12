@@ -1,0 +1,72 @@
+<script type="text/html" data-help-name="modbus-variable">
+
+<p>Lee variables de un servidor Modbus según las secuencias configuradas (dirección, función, tipo de dato) y emite el valor de cada variable, junto con sus umbrales configurados y las alarmas de comunicación.</p>
+
+<h3>Configuración</h3>
+<dl class="message-properties">
+    <dt>Device UUID / Device Name</dt>
+    <dd>Identificadores del dispositivo, incluidos en cada mensaje emitido. <code>Device UUID</code> es un uuid v4 obligatorio y estable
+    (en minúsculas); el botón <b>Generar</b> crea uno. <code>Device Name</code> es una etiqueta libre y modificable.</dd>
+    <dt>Unit ID</dt>
+    <dd>Identificador del esclavo Modbus.</dd>
+    <dt>Periodo (ms)</dt>
+    <dd>Milisegundos entre el fin de un ciclo de lectura y el inicio del siguiente (1000 por defecto). El nodo cicla por sí solo una vez
+    desplegado con un servidor configurado; nunca necesita un <code>inject</code> externo. Dos ciclos del mismo nodo nunca se
+    solapan: si un ciclo dura más que el periodo, el siguiente arranca en cuanto termina en vez de esperar al próximo múltiplo del periodo.
+    Un <code>input</code> externo que llega con un ciclo en curso se descarta (con un aviso) en vez de solaparlo.</dd>
+    <dt>Ciclos fallidos para abrir comunicación</dt>
+    <dd>Un <b>ciclo fallido</b> es aquel en que se intentó leer al menos una variable y <b>todas</b> las lecturas fallaron (el <code>status: failed</code> de la
+    salida 3); un ciclo con alguna lectura buena no es fallido. La alarma de comunicación se abre cuando se dan tantos ciclos fallidos seguidos
+    (3 por defecto; 1 abre al primero) y se cierra con la primera lectura buena. Un fallo suelto de lectura ya no abre
+    <code>DEVICE OFFLINE</code>.</dd>
+    <dt>Servidor Modbus</dt>
+    <dd>Servidor Modbus configurado (nodo <code>modbus-client</code>).</dd>
+    <dt>Secuencias</dt>
+    <dd>Lista de variables a leer. Cada una tiene un <b>Nombre</b> (libre y modificable), un <b>Variable UUID</b> (obligatorio, uuid v4 estable,
+    único dentro del dispositivo — usa <b>Generar</b> por fila, o <b>Generar los que faltan</b> para rellenar solo los vacíos), una <b>Unidad</b>
+    (hay una lista sugerida, pero se acepta texto libre) y un <b>Uso</b> obligatorio elegido de un catálogo cerrado
+    (<code>resources/usos.json</code>): conteo de producción, conteo de verificación, energía activa, energía reactiva, contador, lectura acumulada,
+    medida instantánea, estado. El uso decide cómo se resume la ventana (<code>nature</code>) y en qué cálculo de negocio entra la variable
+    (<code>role</code>); no hay valor por defecto y una variable sin uso válido no se lee ni se emite (el nodo la marca en rojo).
+    Los usos de conteo piden además cómo entrega el equipo su valor: <code>pulses</code> (el registro ya es lo contado) o
+    <code>running_total</code> (un total corrido: el nodo emite la diferencia con la lectura anterior; una lectura menor significa que el contador
+    se reinició y la nueva lectura cuenta entera; la primera lectura no emite nada).
+    El uso «Conteo de producción» lleva siempre el umbral bloqueado <code>zero_count</code> (<code>eq 0</code>).
+    Después, Función (FC1–FC4), Tipo de dato, Orden de bytes, Orden de palabras, Escala y Dirección. <code>float32</code>/<code>float64</code> se
+    redondean a 2 decimales <i>antes</i> de la escala: lee las fracciones ya en % o como entero con escala.
+    Cada secuencia puede definir además Umbrales (nombre, condición <code>gt</code>, <code>gte</code>, <code>eq</code>, <code>lte</code>, <code>lt</code>
+    o <code>between</code>, valor/valor2). No tienen prioridad y se evalúan en cada lectura (una vez por periodo). Para convertir un umbral en
+    alarma, conecta la salida a un <code>alarm-generator</code>.</dd>
+</dl>
+
+<h3>Salidas</h3>
+<ol class="node-ports">
+    <li>Variable
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">number | boolean</span></dt>
+            <dd>Un mensaje por secuencia leída, con <code>device_uuid</code>, <code>device_name</code>, <code>variable_uuid</code>,
+            <code>variable_name</code>, el valor leído y escalado, <code>unit</code>, <code>nature</code>, <code>role</code> (si el uso lo tiene),
+            <code>thresholds[]</code>, <code>responseBuffer</code> y <code>timestamp</code> (ms). Una secuencia sin <code>variable_uuid</code> o uso válidos no se lee.
+            El uso en sí no se emite.</dd>
+        </dl>
+    </li>
+    <li>Alarmas de comunicación
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>El mensaje de alarma común a las tres fuentes: <code>device_uuid</code>, <code>device_name</code>,
+            <code>catalog: "modbus-variable"</code>, <code>alarm_uuid</code> (reservado), <code>alarm_name</code>, <code>state</code> (1/0),
+            <code>value</code>, <code>unit</code> y <code>timestamp</code> (ms, el instante real del cambio). Clases:
+            <code>DEVICE OFFLINE</code> (<code>…0002-000000000001</code>), <code>READ TIMEOUT</code> (<code>…0002-000000000002</code>) y
+            <code>RTU CRC ERROR</code> (<code>…0002-000000000003</code>). Se conecta al reporter y a <code>alarm-publisher</code>.</dd>
+        </dl>
+    </li>
+    <li>Resumen del ciclo
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Se envía al final de cada ciclo de lectura, con <code>variables_total</code>, <code>variables_ok</code>,
+            <code>variables_error</code>, <code>duration_ms</code> y <code>status</code> (<code>ok</code> / <code>partial</code> / <code>failed</code>).</dd>
+        </dl>
+    </li>
+</ol>
+
+</script>

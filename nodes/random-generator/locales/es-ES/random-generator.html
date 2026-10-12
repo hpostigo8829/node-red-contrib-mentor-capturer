@@ -1,0 +1,39 @@
+<script type="text/html" data-help-name="random-generator">
+
+<p>Genera valores numéricos simulados a un intervalo configurable, con distintos modos de variación
+(aleatorio, suave, caminata aleatoria, onda senoidal, escalones). Sirve para simular sensores o probar flujos
+sin hardware real. Es de laboratorio: no entra en los flujos de planta.</p>
+
+<h3>Configuración</h3>
+<dl class="message-properties">
+    <dt>Valor mínimo / Valor máximo</dt>
+    <dd>Rango de los valores generados.</dd>
+    <dt>Modo</dt>
+    <dd>Cómo varía el valor:
+        <ul>
+            <li><b>Aleatorio</b>: valor aleatorio uniforme dentro del rango en cada intervalo.</li>
+            <li><b>Suave</b>: se mueve gradualmente hacia un nuevo objetivo aleatorio (sin saltos bruscos).</li>
+            <li><b>Caminata aleatoria</b>: pasos pequeños y acumulados alrededor del valor actual.</li>
+            <li><b>Onda senoidal</b>: oscila siguiendo una senoide entre el mínimo y el máximo, con una velocidad configurable.</li>
+            <li><b>Escalones</b>: recorre un conjunto fijo de valores intermedios (al azar o en secuencia).</li>
+        </ul>
+    </dd>
+    <dt>Tipo de número</dt>
+    <dd><code>Decimal</code> (con número de decimales configurable) o <code>Entero</code>.</dd>
+    <dt>Número de escalones / Modo de escalones</dt>
+    <dd>Solo en el modo Escalones: cuántos valores intermedios y si se recorren en orden o al azar.</dd>
+    <dt>Velocidad de la onda</dt>
+    <dd>Solo en el modo Onda senoidal: qué tan rápido oscila.</dd>
+    <dt>Tipo de salida</dt>
+    <dd><code>Número</code> o <code>Texto</code>.</dd>
+    <dt>Intervalo</dt>
+    <dd>Cada cuánto se genera un valor nuevo (segundos o minutos).</dd>
+</dl>
+
+<h3>Entrada</h3>
+<p>Ninguna: el nodo no tiene entradas; genera valores por su cuenta según el intervalo configurado.</p>
+
+<h3>Salida</h3>
+<p><code>msg.payload</code> con el valor generado, según el tipo de número y el tipo de salida configurados.</p>
+
+</script>

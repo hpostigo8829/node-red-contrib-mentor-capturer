@@ -1,0 +1,26 @@
+<script type="text/html" data-help-name="production-reporter">
+
+<p>Genera reportes de producción agregando los datos de los sensores y los eventos de alarma en un intervalo configurable.</p>
+
+<h3>Entrada</h3>
+<ul>
+    <li><b>Sensores:</b> mensajes con <code>msg.variables</code> (la muestra de <code>module-production</code>). Una variable de estado (presencia) pesa
+    lo que dura la muestra, <code>end_range - start_range</code>: su <code>sum</code> son los segundos en alto; <code>min</code>, <code>max</code> y
+    <code>last</code> conservan el nivel (0 o 1).</li>
+    <li><b>Alarmas:</b> mensajes con <code>msg.payload.alarm_uuid</code> (salida 2 de <code>module-production</code> o <code>modbus-variable</code>,
+    o <code>alarm-generator</code>). Una alarma con <code>device_uuid</code>, <code>catalog</code> o <code>alarm_uuid</code> inválidos se descarta con un solo aviso.</li>
+</ul>
+
+<h3>Salida</h3>
+<p>Emite un reporte consolidado por dispositivo con:</p>
+<ul>
+    <li><code>device_uuid</code> / <code>device_name</code></li>
+    <li><code>data</code> (resumen y tramos de umbral por variable)</li>
+    <li><code>alarms</code>: las alarmas de <b>ese</b> dispositivo agrupadas por <code>(catalog, alarm_uuid)</code>, con <code>severity</code> solo en el catálogo <code>alarm-generator</code>, y sus tramos</li>
+    <li><code>start_range</code> / <code>end_range</code></li>
+</ul>
+
+<h3>Configuración</h3>
+<p>Fija cada cuánto se genera el reporte: segundos, minutos u horas.</p>
+
+</script>

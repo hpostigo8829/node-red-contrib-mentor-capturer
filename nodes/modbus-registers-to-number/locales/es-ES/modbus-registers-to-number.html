@@ -1,0 +1,21 @@
+<script type="text/html" data-help-name="modbus-registers-to-number">
+
+<p>Convierte un arreglo de registros Modbus (16 bits) en un número, según el tipo de dato, el orden de bytes y el orden de palabras configurados.</p>
+
+<h3>Configuración</h3>
+<dl class="message-properties">
+    <dt>Tipo de dato</dt>
+    <dd>Tipo numérico de salida (<code>INT16</code>, <code>UINT16</code>, <code>INT32</code>, <code>UINT32</code>, <code>FLOAT32</code>, <code>INT64</code>, <code>UINT64</code>, <code>FLOAT64</code>).</dd>
+    <dt>Orden de bytes</dt>
+    <dd>Orden de los bytes dentro del valor (Big Endian / Little Endian); se aplica a los tipos de 32 y 64 bits.</dd>
+    <dt>Orden de palabras</dt>
+    <dd>Orden de los registros cuando el valor ocupa más de uno (Normal / Intercambiadas).</dd>
+</dl>
+
+<h3>Entrada</h3>
+<p><code>msg.payload</code> debe ser un arreglo de registros (enteros de 16 bits), como los que devuelve una lectura Modbus.</p>
+
+<h3>Salida</h3>
+<p><code>msg.payload</code> se sustituye por el número resultante, según el tipo de dato configurado.</p>
+
+</script>

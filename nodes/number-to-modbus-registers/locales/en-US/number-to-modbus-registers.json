@@ -1,0 +1,14 @@
+{
+    "number-to-modbus-registers": {
+        "palette": "Number To Modbus Registers",
+        "label": {
+            "dataType": "Data Type",
+            "byteOrder": "Byte Order",
+            "wordOrder": "Word Order",
+            "bigEndian": "Big Endian",
+            "littleEndian": "Little Endian",
+            "normal": "Normal",
+            "swap": "Swap"
+        }
+    }
+}

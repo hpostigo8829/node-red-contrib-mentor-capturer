@@ -1,0 +1,49 @@
+<script type="text/html" data-help-name="alarm-generator">
+    <p>Convierte un <b>umbral</b> de una variable en una <b>alarma</b>, con histéresis y severidad propia. Un umbral sigue siendo analítica
+    (sus tramos viajan en el paquete del minuto); solo si el flujo lo conecta a este nodo, además genera una alarma. Sin el nodo, nada cambia.</p>
+
+    <h3>Configuración</h3>
+    <dl class="message-properties">
+        <dt>Variable / Umbral</dt>
+        <dd>Un nodo vigila <b>un</b> umbral de <b>una</b> variable (para dos umbrales, dos nodos). El editor detecta el nodo de origen por el
+        cable directo a la entrada (<code>modbus-variable</code> o <code>module-production</code>, salida 1) y ofrece desplegables, con la unidad
+        visible. Con un nodo link, una función o dos orígenes avisa y deja escribir a mano el <code>variable_uuid</code> y el nombre del umbral.
+        Los nombres de umbral son únicos dentro de una variable.</dd>
+        <dt>Nombre de la alarma</dt>
+        <dd>El <code>alarm_name</code> que viaja en la alarma. Es un dato: no se traduce.</dd>
+        <dt>alarm_uuid</dt>
+        <dd>Un uuid v4 que se genera una vez con <b>Generar</b>; no debe cambiar después, es la identidad de la alarma en el histórico. Dos nodos
+        alarm-generator no pueden compartirlo.</dd>
+        <dt>Severidad</dt>
+        <dd><code>info</code> (solo histórico, nunca se muestra al operario), <code>warning</code> (por defecto) o <code>critical</code>.</dd>
+        <dt>Activar tras / Apagar tras</dt>
+        <dd>Segundos que debe mantenerse la condición antes de abrir la alarma (5 por defecto) y antes de cerrarla (10 por defecto); 1 s como mínimo.
+        Se miden con el instante de las lecturas, no con el reloj del nodo; si dejan de llegar lecturas, el estado no cambia.</dd>
+        <dt>Margen para apagar</dt>
+        <dd>Un número sin unidad propia (usa la de la variable). Con la alarma abierta, solo empieza a cerrarse cuando la lectura sale de la condición
+        <i>más el margen</i>: en <code>gt</code>/<code>gte</code> el margen se resta del límite, en <code>lt</code>/<code>lte</code> se suma, en
+        <code>between</code> se aplica por los dos lados y en <code>eq</code> no se aplica. 0 = desactivado. Ejemplo: <code>gt 250</code> con margen 5
+        abre por encima de 250 y cierra por debajo de 245.</dd>
+    </dl>
+
+    <h3>Entrada</h3>
+    <p>Dos formas; solo se atiende a la variable elegida: la muestra de <code>module-production</code> (<code>variables[]</code> con
+    <code>thresholds[].condition_met</code>) y el mensaje de una variable de <code>modbus-variable</code> (aquí se evalúan los
+    <code>thresholds[]</code> contra <code>payload</code>).</p>
+
+    <h3>Salida</h3>
+    <p>Una salida, solo al cambiar de estado. Se conecta al reporter (como la salida 2 de los otros nodos) y a <code>alarm-publisher</code>.</p>
+    <pre>{
+  "device_uuid": "...", "device_name": "...",
+  "catalog": "alarm-generator",
+  "alarm_uuid": "...", "alarm_name": "...",
+  "severity": "critical",
+  "state": 1,
+  "value": 252.4, "unit": "V",
+  "variable_uuid": "...",
+  "threshold": { "name": "...", "condition": "gt", "value1": 250, "value2": null },
+  "timestamp": 1791399995000
+}</pre>
+    <p><code>timestamp</code> (ms) es el instante real en que empezó o terminó la condición, no el del fin del retardo; <code>value</code> es la lectura
+    en ese instante; <code>threshold</code> es el límite contra el que se comparó.</p>
+</script>

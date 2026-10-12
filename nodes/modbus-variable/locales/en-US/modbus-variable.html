@@ -1,0 +1,74 @@
+<script type="text/html" data-help-name="modbus-variable">
+
+<p>Reads variables from a Modbus server according to the configured sequences (address, function, data type) and emits each variable's value, along with its configured thresholds and communication alarms.</p>
+
+<h3>Configuration</h3>
+<dl class="message-properties">
+    <dt>Device UUID / Device Name</dt>
+    <dd>Device identifiers, included in every emitted message. <code>Device UUID</code> is a mandatory, stable uuid v4
+    (lowercase); use the <b>Generate</b> button to create one. <code>Device Name</code> is a free, changeable label.</dd>
+    <dt>Unit ID</dt>
+    <dd>Modbus slave ID.</dd>
+    <dt>Period (ms)</dt>
+    <dd>Milliseconds between the end of one read cycle and the start of the next (default 1000). The node cycles on its own
+    once deployed with a server configured; it never needs an external <code>inject</code>. Two cycles of the same node
+    never overlap: if a cycle takes longer than the period, the next one starts immediately after it finishes instead of
+    waiting for the next multiple of the period. An external <code>input</code> received while a cycle is already running
+    is discarded (with a warning) instead of overlapping it.</dd>
+    <dt>Failed cycles to open a communication alarm</dt>
+    <dd>A <b>failed cycle</b> is one in which at least one variable was read and <b>all</b> the readings failed (<code>status: failed</code> of
+    output 3); a cycle with some good reading is not failed. The communication alarm opens when this many failed cycles happen in a row
+    (default 3; 1 opens at the first one) and closes with the first good reading. A single failed read no longer opens
+    <code>DEVICE OFFLINE</code>.</dd>
+    <dt>Modbus Server</dt>
+    <dd>Configured Modbus server (<code>modbus-client</code> node).</dd>
+    <dt>Sequences</dt>
+    <dd>List of variables to read. Each one has a <b>Name</b> (free, changeable), a <b>Variable UUID</b> (mandatory, stable
+    uuid v4, unique within the device — use <b>Generate</b> per row, or <b>Generate the missing ones</b> to fill only the empty
+    ones), a <b>Unit</b> (a suggested list, but free text is accepted), and a mandatory <b>Usage</b> picked from a
+    closed catalog (<code>resources/usos.json</code>): production count, verification count, active energy, reactive energy,
+    counter, meter reading, instantaneous measurement, state. The usage decides how the window is summarised
+    (<code>nature</code>) and which business calculation the variable feeds (<code>role</code>); there is no default and a
+    variable without a valid usage is neither read nor emitted (the node shows it in red).
+    The count usages also ask how the device delivers its value: <code>pulses</code> (the register already is what was
+    counted) or <code>running_total</code> (a running total: the node emits the difference with the previous reading; a lower
+    reading means the counter restarted and the new reading counts whole; the first reading emits nothing).
+    The usage «Production count» always carries the locked threshold <code>zero_count</code> (<code>eq 0</code>).
+    Then Function (FC1–FC4), Data type, Byte order, Word order, Scale and Address. <code>float32</code>/<code>float64</code> are rounded to
+    2 decimals <i>before</i> the scale: read fractions already in % or as an integer with a scale.
+    Each sequence can also define Thresholds (name, condition <code>gt</code>, <code>gte</code>, <code>eq</code>,
+    <code>lte</code>, <code>lt</code> or <code>between</code>, value/value2). They have no priority and are evaluated on
+    every reading (once per period). To turn a threshold into an alarm, connect the output to an <code>alarm-generator</code>.</dd>
+</dl>
+
+<h3>Outputs</h3>
+<ol class="node-ports">
+    <li>Variable
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">number | boolean</span></dt>
+            <dd>One message per read sequence, with <code>device_uuid</code>, <code>device_name</code>, <code>variable_uuid</code>,
+            <code>variable_name</code>, the read and scaled value, <code>unit</code>, <code>nature</code>, <code>role</code> (if the usage has one),
+            <code>thresholds[]</code>, <code>responseBuffer</code> and <code>timestamp</code> (ms). A sequence without a valid <code>variable_uuid</code> or usage is not read.
+            The usage itself is not emitted.</dd>
+        </dl>
+    </li>
+    <li>Communication alarms
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>The alarm message common to the three alarm sources: <code>device_uuid</code>, <code>device_name</code>,
+            <code>catalog: "modbus-variable"</code>, <code>alarm_uuid</code> (reserved), <code>alarm_name</code>, <code>state</code> (1/0),
+            <code>value</code>, <code>unit</code> and <code>timestamp</code> (ms, the real instant of the change). Classes:
+            <code>DEVICE OFFLINE</code> (<code>…0002-000000000001</code>), <code>READ TIMEOUT</code> (<code>…0002-000000000002</code>) and
+            <code>RTU CRC ERROR</code> (<code>…0002-000000000003</code>). Connect it to the reporter and to <code>alarm-publisher</code>.</dd>
+        </dl>
+    </li>
+    <li>Cycle summary
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Sent at the end of each read cycle, with <code>variables_total</code>, <code>variables_ok</code>,
+            <code>variables_error</code>, <code>duration_ms</code>, and <code>status</code> (<code>ok</code> / <code>partial</code> / <code>failed</code>).</dd>
+        </dl>
+    </li>
+</ol>
+
+</script>

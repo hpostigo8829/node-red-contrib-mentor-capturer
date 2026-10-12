@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "unidades_sugeridas": ["V", "A", "kW", "kVAr", "kVA", "kWh", "kVArh", "Hz", "%", "und", "pulses", "s"],
+  "usos": [
+    { "usage": "production_count",           "label": "Conteo de producción",         "nature": "increment",     "role": "production_count",           "totalizer": true,  "zero_count": true  },
+    { "usage": "production_count_redundant", "label": "Conteo de verificación",       "nature": "increment",     "role": "production_count_redundant", "totalizer": true,  "zero_count": false },
+    { "usage": "energy_active",              "label": "Energía activa (kWh)",         "nature": "cumulative",    "role": "energy_active",              "totalizer": false, "zero_count": false },
+    { "usage": "energy_reactive",            "label": "Energía reactiva (kVArh)",     "nature": "cumulative",    "role": "energy_reactive",            "totalizer": false, "zero_count": false },
+    { "usage": "counter",                    "label": "Contador sin papel",           "nature": "increment",     "role": null,                         "totalizer": true,  "zero_count": false },
+    { "usage": "meter_reading",              "label": "Lectura acumulada sin papel",  "nature": "cumulative",    "role": null,                         "totalizer": false, "zero_count": false },
+    { "usage": "measurement",                "label": "Medida instantánea",           "nature": "instantaneous", "role": null,                         "totalizer": false, "zero_count": false },
+    { "usage": "state",                      "label": "Estado",                       "nature": "state",         "role": null,                         "totalizer": false, "zero_count": false }
+  ]
+}

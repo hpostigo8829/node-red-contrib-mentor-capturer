@@ -1,0 +1,61 @@
+<script type="text/html" data-help-name="module-production">
+
+<p>Vigila sensores de conteo y de presencia de un módulo de producción (por GPIO), evalúa 6 alarmas de operación predefinidas
+(desalineación, bloqueo, falla de sensor, desconexión), evalúa umbrales configurables sobre los conteos de cada muestra
+y emite una muestra de producción por intervalo de muestra.</p>
+
+<h3>Configuración</h3>
+<dl class="message-properties">
+    <dt>Configuración general</dt>
+    <dd><code>Device UUID</code>, <code>Device Name</code> y el <b>Intervalo de muestra</b>: de 1 a 60 segundos, un divisor de 60
+    (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 o 60), 1 s por defecto (un flujo sin el campo queda en 1 s). Los umbrales se evalúan en cada muestra;
+    una línea lenta (un producto cada 20 s) elige un intervalo mayor para que casi todas las muestras no sean cero. No es el antiguo
+    <code>report_interval</code>, que se sigue ignorando. Una variable de presencia pesa lo que dura cada muestra, así que su suma son los segundos en alto.
+    Las alarmas A1–A6 no dependen de este intervalo.</dd>
+    <dt>Conteo 1 (obligatorio) y Conteo 2 (opcional)</dt>
+    <dd>Dos variables de conteo independientes, cada una con una entrada GPIO, un nombre, un UUID de variable, una unidad, un <b>Uso</b> obligatorio
+    y sus propios umbrales. Solo se ofrecen usos de conteo (conteo de producción, conteo de verificación, contador sin papel);
+    el uso decide <code>nature</code> y <code>role</code> y no se emite. El uso «Conteo de producción» lleva siempre el umbral
+    bloqueado <code>zero_count</code> (<code>eq 0</code>). Un sensor sin uso válido no se reporta.</dd>
+    <dt>Presencia (opcional)</dt>
+    <dd>Una variable de estado (<code>nature: state</code>): solo nombre y UUID, sin unidad ni umbrales. Alimenta las alarmas 1, 2 y 4.</dd>
+    <dt>Umbrales</dt>
+    <dd>Nombre, condición (<code>gt</code>, <code>gte</code>, <code>eq</code>, <code>lte</code>, <code>lt</code>, <code>between</code>)
+    y valor(es), el mismo vocabulario que <code>modbus-variable</code>, sin prioridad. Se evalúan sobre las botellas contadas en cada muestra.
+    Para convertir un umbral en alarma (por ejemplo «sin producto en X tiempo», con el retardo de activación), conecta la salida 1 a un
+    <code>alarm-generator</code>.</dd>
+    <dt>Diagnóstico entre sensores / bloqueo de sensores</dt>
+    <dd>Las 6 alarmas predefinidas, cada una con su casilla de activación y su umbral de tiempo o pulsos. Entre sensores:
+    1. Sensor de conteo desalineado · 2. Sensor de presencia desconectado · 4. Sensor de presencia desalineado. Bloqueo:
+    3. Sensor de conteo bloqueado · 5. Falla del sensor de conteo 1 · 6. Falla del sensor de conteo 2.</dd>
+    <dt>Diagnóstico</dt>
+    <dd>Activa una salida extra con todo el estado interno del nodo, para depurar.</dd>
+</dl>
+
+<h3>Salidas</h3>
+<ol class="node-ports">
+    <li>Muestra de producción
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>En cada intervalo de muestra, un mensaje con el conteo, el estado, <code>nature</code>, <code>role</code> (si lo hay) y los umbrales evaluados
+            (<code>condition_met</code>, sobre <code>[start_timestamp, timestamp]</code>) de cada sensor, y los segundos que cubre
+            (<code>start_range</code>, <code>end_range</code>).</dd>
+        </dl>
+    </li>
+    <li>Alarmas
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Se emite cada vez que una de las 6 alarmas predefinidas (activadas) cambia de estado (<code>state: 1</code>/<code>0</code>). Lleva
+            <code>catalog: "module-production"</code> y el <code>alarm_uuid</code> reservado <code>00000000-0000-0000-0001-00000000000N</code>
+            (N = 1 a 6); <code>alarm_name</code> no cambia. Se conecta al reporter y a <code>alarm-publisher</code>.</dd>
+        </dl>
+    </li>
+    <li>Diagnóstico
+        <dl class="message-properties">
+            <dt>payload <span class="property-type">object</span></dt>
+            <dd>Solo si está activado: el estado interno completo del nodo (contexto, conteos, últimos estados) para depurar.</dd>
+        </dl>
+    </li>
+</ol>
+
+</script>

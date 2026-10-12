@@ -1,0 +1,28 @@
+<script type="text/html" data-help-name="device-reporter">
+
+<p>Agrega las lecturas por dispositivo y emite periódicamente un resumen de cada una de sus variables y umbrales,
+y declara las alarmas del dispositivo en <code>alarms[]</code>.</p>
+
+<h3>Configuración</h3>
+<dl class="message-properties">
+    <dt>Intervalo del reporte</dt>
+    <dd>Cada cuánto se genera y envía un reporte por cada dispositivo que ha recibido datos (segundos, minutos u horas).</dd>
+</dl>
+
+<h3>Entrada</h3>
+<ul>
+    <li><b>Variables:</b> el mensaje de variable que emite la salida 1 de <code>modbus-variable</code>, con sus <code>thresholds[]</code> configurados.</li>
+    <li><b>Alarmas:</b> un mensaje con <code>payload.alarm_uuid</code>, de la salida 2 de <code>modbus-variable</code> o <code>module-production</code>,
+    o de <code>alarm-generator</code>. <code>state: 1</code> abre un tramo y <code>state: 0</code> lo cierra, según el <code>timestamp</code> del mensaje.
+    Una alarma con <code>device_uuid</code>, <code>catalog</code> o <code>alarm_uuid</code> inválidos se descarta con un solo aviso.</li>
+</ul>
+
+<h3>Salida</h3>
+<p>En cada intervalo emite un reporte por dispositivo con las estadísticas de cada variable
+(suma, conteo, promedio, mínimo, máximo, desviación estándar) y, por cada umbral, los tramos
+en que su condición se cumplió, con las estadísticas de cada tramo.</p>
+<p><code>alarms[]</code> agrupa las alarmas de ese dispositivo por <code>(catalog, alarm_uuid)</code> con sus tramos dentro de la ventana:
+<code>catalog</code>, <code>alarm_uuid</code>, <code>severity</code> (solo en el catálogo <code>alarm-generator</code>), <code>alarm_name</code>,
+<code>state</code>, <code>value</code>, <code>unit</code> y <code>ranges[]</code>. Un tramo aún abierto al cerrar la ventana se cierra ahí y continúa en el reporte siguiente.</p>
+
+</script>

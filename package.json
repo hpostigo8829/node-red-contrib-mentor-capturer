@@ -39,7 +39,8 @@
       "module-production": "nodes/module-production/module-production.js",
       "production-reporter": "nodes/production-reporter/production-reporter.js",
       "random-generator": "nodes/random-generator/random-generator.js",
-      "alarm-generator": "nodes/alarm-generator/alarm-generator.js"
+      "alarm-generator": "nodes/alarm-generator/alarm-generator.js",
+      "alarm-publisher": "nodes/alarm-publisher/alarm-publisher.js"
     }
   },
   "dependencies": {

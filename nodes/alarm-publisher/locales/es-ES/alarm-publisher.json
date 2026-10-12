@@ -1,0 +1,10 @@
+{
+    "alarm-publisher": {
+        "palette": "Publicador de alarmas",
+        "status": {
+            "waiting": "esperando",
+            "last": "última:",
+            "invalid": "alarma no publicada"
+        }
+    }
+}

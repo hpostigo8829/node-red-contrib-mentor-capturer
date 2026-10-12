@@ -13,7 +13,8 @@ A set of custom Node-RED nodes: Modbus read/write, production reporting, pulse c
 | **module-production** | Pulse counting for industrial production |
 | **production-reporter** | Generates periodic production reports |
 | **random-generator** | Random value generator for testing and simulation |
-| **alarm-generator** | Raises status alarms (1/0) from thresholds emitted by other nodes |
+| **alarm-generator** | Turns one threshold of one variable into an alarm, with hysteresis, release margin, severity and its own `alarm_uuid` |
+| **alarm-publisher** | Publishes every alarm change at once as an `alarm-event/v1` message for a standard `mqtt out` node |
 
 ## Installation
 
@@ -35,6 +36,23 @@ npm install node-red-contrib-mentor-capturer
 
 - Node-RED >= 2.0.0
 - Node.js >= 14
+
+## Languages
+
+Every node is available in English (en-US, the base) and Spanish (es-ES) through the standard Node-RED `locales/`
+mechanism: labels, statuses, editor notices and help. Data is never translated: alarm names, threshold names and the
+fields and values of the messages (`catalog`, `severity`, ...) are the same in every language.
+
+## Alarms (Mentor patch)
+
+- Every alarm message carries `catalog` (`module-production`, `modbus-variable` or `alarm-generator`) and `alarm_uuid`
+  (a uuid v4 for `alarm-generator`; reserved uuids `00000000-0000-0000-<catalog>-<n>` for the nine known alarms)
+  instead of the numeric `alarm_id`. The reporters group alarms by `(device_uuid, catalog, alarm_uuid)`.
+- **alarm-generator** watches one threshold of one variable chosen in the editor from the node wired to its input,
+  with activation and release delays (5 s / 10 s by default), a release margin, severity and the real instant of the change.
+- **alarm-publisher** sends the alarm to `mentor_alarms/<device_uuid>` (QoS 1, not retained) through a standard `mqtt out`.
+- **modbus-variable** opens its communication alarm after N failed cycles in a row (3 by default).
+- **module-production** has a configurable sample interval (1 to 60 s, a divisor of 60, 1 s by default).
 
 ## Recent changes (1.1.0)
 

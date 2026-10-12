@@ -1,4 +1,6 @@
 module.exports = function (RED) {
+
+    const naturaleza = require("../../resources/naturaleza-variable");
     function ModuleProductionNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
@@ -13,6 +15,76 @@ module.exports = function (RED) {
         const ENABLE_SC1 = true;
         const ENABLE_SC2 = !!sc2;
         const ENABLE_SP  = !!sp;
+
+        // Intervalo de muestra (spec 010, D13): segundos entre muestras. Tiene que ser
+        // uno de los divisores de 60 entre 1 y 60; ausente (un flujo anterior) es 1 s.
+        // Un valor fuera de la lista se avisa y se toma 1 s.
+        const SAMPLE_INTERVAL_S = (function () {
+            const v = config.sample_interval;
+            if (v === undefined || v === null || v === "") return 1;
+            if (naturaleza.INTERVALOS_DE_MUESTRA.includes(Number(v))) return Number(v);
+            node.error("sample_interval \"" + v + "\" no es válido; admitidos: "
+                + naturaleza.INTERVALOS_DE_MUESTRA.join(", ") + " (segundos). Se usa 1 s");
+            return 1;
+        })();
+
+        // Uso de la variable (spec 009). Cada sensor es una variable con nombre,
+        // uuid, unidad, uso y umbrales propios. Un flujo anterior (papel sc1_role,
+        // lista de umbrales común con "target", condiciones con símbolos) se
+        // traduce aquí, así que sigue funcionando sin volver a guardarlo.
+        // El uso decide nature y role: no hay valor por defecto, y un sensor sin uso
+        // válido no se reporta (mismo tratamiento que un uuid ausente).
+        function sensorDeConteo(sensor, etiqueta, activo) {
+
+            if (!activo) return null;
+
+            const variable = naturaleza.variableDeSensor(config, sensor);
+            const errores = naturaleza.validarSensorDeConteo(variable);
+
+            if (errores.length) {
+                node.error(etiqueta + ": " + errores.join("; ") + ". El sensor no se reporta");
+                return null;
+            }
+
+            const avisos = naturaleza.avisosDeConfiguracion(variable);
+
+            // Un contador de producción sin su umbral de conteo cero se resume igual
+            // de bien, pero nadie sabrá en qué segundos dejó de contar y su línea
+            // no aparecerá parada nunca. Se avisa al arrancar, una vez.
+            if (avisos.length) {
+                node.error(etiqueta + ": " + avisos.join("; "));
+            }
+
+            return { ...variable, campos: naturaleza.camposDeVariable(variable) };
+        }
+
+        // Identificador de cada sensor (spec 007): obligatorio solo si el
+        // sensor está activado (CA2). Sin uno válido, la variable no se
+        // reporta — mismo tratamiento que una secuencia sin variable_uuid en
+        // modbus-variable (E1), para no publicar identidad inventada (RN2).
+        function variableUuidDeSensor(uuid, etiqueta, activo) {
+
+            if (!activo) return null;
+
+            if (!uuid || !naturaleza.esUuidV4(uuid)) {
+                node.error(etiqueta + ': variable_uuid ausente o inválido; el sensor no se reporta');
+                return null;
+            }
+
+            return uuid;
+        }
+
+        const UUID_SC1 = variableUuidDeSensor(config.uuid_sc1, "Count 1", ENABLE_SC1);
+        const UUID_SC2 = variableUuidDeSensor(config.uuid_sc2, "Count 2", ENABLE_SC2);
+        const UUID_SP  = variableUuidDeSensor(config.uuid_sp, "Presence", ENABLE_SP);
+
+        const VAR_SC1 = sensorDeConteo("sc1", "Count 1", ENABLE_SC1);
+        const VAR_SC2 = sensorDeConteo("sc2", "Count 2", ENABLE_SC2);
+
+        // La presencia es solo un estado: sin unidad, sin umbrales, sin papel.
+        const VAR_SP = ENABLE_SP
+            ? { ...naturaleza.variableDeSensor(config, "sp"), campos: { nature: "state" } }
+            : null;
 
         // =========================
         // PRODUCCIÓN
@@ -72,25 +144,40 @@ module.exports = function (RED) {
 
             count1Start: null,
             count2Start: null,
-            presenceMisalignedStart: null
+            presenceMisalignedStart: null,
+
+            // Spec 012: inicio real de las condiciones por conteo de pulsos
+            // (A1 y A2): el primer pulso de la racha que luego llega al umbral.
+            presenceStreakStart: null,
+            count1NoPresenceStart: null
         };
 
         // =========================
         // EMIT ALARM
         // =========================
+        // Spec 010 (C-01 v3): cada alarma lleva su catálogo y su alarm_uuid reservado
+        // (A1-A6 son las 1-6 del catálogo module-production). El nombre no cambia:
+        // es parte del contrato. La severidad la pone el consumidor por el uuid.
+        // Spec 012: en la apertura (state 1) el timestamp es el inicio real de la
+        // condición (extra.since, epoch ms), no el instante en que el temporizador
+        // o el contador la detecta. El cierre (state 0) sigue llevando el instante
+        // en que se observa.
         function emitAlarm(enabled, id, name, state, extra = {}) {
             if (!enabled) return;
+
+            const reservada = naturaleza.alarmaReservada("module-production", id);
 
             node.send([null, {
                 payload: {
                     device_uuid: config.device_uuid,
                     device_name: config.device_name,
-                    alarm_id: id,
+                    catalog: "module-production",
+                    alarm_uuid: reservada.alarm_uuid,
                     alarm_name: name,
                     state: state,
                     value: extra.value ?? null,
                     unit: extra.unit || "sec",
-                    timestamp: Date.now()
+                    timestamp: (state === 1 && Number.isFinite(extra.since)) ? extra.since : Date.now()
                 }
             }]);
         }
@@ -195,7 +282,8 @@ module.exports = function (RED) {
 
                     emitAlarm(ENABLE.A3, 3, "SENSOR DE CONTEO BLOQUEADO", 1, {
                         value: BLOCKED_TIME_MS / 1000,
-                        unit: "sec"
+                        unit: "sec",
+                        since: ctx.count1Start
                     });
                 }
             }
@@ -212,7 +300,8 @@ module.exports = function (RED) {
 
                     emitAlarm(ENABLE.A4, 4, "SENSOR DE PRESENCIA DESALINEADO", 1, {
                         value: MISALIGNED_TIME_MS / 1000,
-                        unit: "sec"
+                        unit: "sec",
+                        since: ctx.presenceMisalignedStart
                     });
                 }
             }
@@ -224,7 +313,8 @@ module.exports = function (RED) {
 
                     emitAlarm(ENABLE.A5, 5, "FALLA SENSOR DE CONTEO 1", 1, {
                         value: COUNT1_BLOCKED_MS / 1000,
-                        unit: "sec"
+                        unit: "sec",
+                        since: ctx.count1Start
                     });
                 }
             }
@@ -236,7 +326,8 @@ module.exports = function (RED) {
 
                     emitAlarm(ENABLE.A6, 6, "FALLA SENSOR DE CONTEO 2", 1, {
                         value: COUNT2_BLOCKED_MS / 1000,
-                        unit: "sec"
+                        unit: "sec",
+                        since: ctx.count2Start
                     });
                 }
             }
@@ -279,12 +370,14 @@ module.exports = function (RED) {
 
                     if (ENABLE_SP && ctx.currentPresenceState === 0) {
                         ctx.count1NoPresenceCount++;
+                        if (ctx.count1NoPresenceCount === 1) ctx.count1NoPresenceStart = now;
                         if (ctx.count1NoPresenceCount >= THRESHOLD_DESCONECTADO && !ctx.alarm2Active) {
                             ctx.alarm2Active = true;
 
                             emitAlarm(ENABLE.A2, 2, "SENSOR DE PRESENCIA DESCONECTADO", 1, {
                                 value: THRESHOLD_DESCONECTADO,
-                                unit: "pulses"
+                                unit: "pulses",
+                                since: ctx.count1NoPresenceStart
                             });
                         }
                     } else {
@@ -356,13 +449,15 @@ module.exports = function (RED) {
 
                     if (ctx.currentCount1State === 0) {
                         ctx.presenceCount++;
+                        if (ctx.presenceCount === 1) ctx.presenceStreakStart = now;
 
                         if (ctx.presenceCount >= THRESHOLD_DESALINEADO && !ctx.alarm1Active) {
                             ctx.alarm1Active = true;
 
                             emitAlarm(ENABLE.A1, 1, "SENSOR DE CONTEO DESALINEADO", 1, {
                                 value: THRESHOLD_DESALINEADO,
-                                unit: "pulses"
+                                unit: "pulses",
+                                since: ctx.presenceStreakStart
                             });
                         }
 
@@ -412,127 +507,112 @@ module.exports = function (RED) {
         });
         
         // =========================
-        // PRODUCCIÓN
+        // PRODUCCIÓN (una muestra por intervalo)
         // =========================
+        // Los umbrales se evalúan en cada muestra sobre las botellas contadas en
+        // ella. El intervalo (sample_interval, 1-60 s y divisor de 60, 1 s por
+        // defecto) es el de la muestra: con 1 s una parada de 6 s dentro de 10 s se
+        // ve y una de 14 s dura 14 s; una línea lenta (un producto cada 20 s)
+        // elige un intervalo mayor para que casi todas las muestras no sean cero.
+        // No es report_interval (el de versiones anteriores, que se ignora): el
+        // paquete al concentrador lo agrega production-reporter en su propia
+        // ventana. Cada muestra dice qué segundos cubre ([start_range, end_range])
+        // para que production-reporter una las muestras seguidas en un tramo y pese
+        // la presencia por lo que dura la muestra. Las alarmas A1-A6 tienen su
+        // propio temporizador de 1 s y no dependen de este intervalo.
         let startRange = Math.floor(Date.now() / 1000);
 
         const timerProd = setInterval(() => {
 
             const now = Date.now();
-            const endRange = Math.floor(now / 1000);
+
+            // Cada muestra cubre al menos un intervalo: un temporizador que se adelanta
+            // no genera una muestra vacía ni la repite. Si el proceso se detuvo y se
+            // retrasa, la muestra cubre todos los segundos que pasaron.
+            const endRange = Math.max(startRange + SAMPLE_INTERVAL_S, Math.floor(now / 1000));
 
             let variables = [];
 
             // =========================
-            // BUILD THRESHOLDS
+            // THRESHOLDS DE UNA VARIABLE
             // =========================
-            function buildThresholds(target, count) {
+            function buildThresholds(variable, count) {
 
-                const thresholds = config.thresholds || [];
-
-                return thresholds
-                    .filter(t => t.target === target)
-                    .map(t => {
-
-                    let condition_met = false;
-
-                        switch (t.condition) {
-
-                            case "==":
-                                condition_met = count == t.value;
-                            break;
-
-                            case ">=":
-                                condition_met = count >= t.value;
-                            break;
-
-                            case "<=":
-                                condition_met = count <= t.value;
-                            break;
-                        }
-
-                return {
+                return (variable.thresholds || []).map(t => ({
                     name: t.name,
                     condition: t.condition,
                     value: t.value,
-                    condition_met: condition_met,
+                    value2: t.condition === "between" ? t.value2 : null,
+                    condition_met: naturaleza.evaluarUmbral(count, t),
+                    start_timestamp: startRange,
                     timestamp: endRange
-                };
+                }));
+            }
+
+            // =========================
+            // SC1 y SC2: dos variables de conteo independientes
+            // =========================
+            [
+                { topic: sc1, uuid: UUID_SC1, variable: VAR_SC1 },
+                { topic: sc2, uuid: UUID_SC2, variable: VAR_SC2 }
+            ].forEach(sensor => {
+
+                if (!sensor.topic || !sensor.uuid || !sensor.variable) return;
+
+                const count = counts[sensor.topic] || 0;
+
+                variables.push({
+                    variable_uuid: sensor.uuid,
+                    variable_name: sensor.variable.name,
+                    topic: sensor.topic,
+                    count: count,
+                    state: lastState[sensor.topic] || 0,
+                    unit: sensor.variable.unit,
+
+                    // nature y role salen del uso: el sensor no los decide.
+                    ...sensor.variable.campos,
+
+                    thresholds: buildThresholds(sensor.variable, count)
+                });
             });
-    }
 
-    // =========================
-    // SC1
-    // =========================
-    if (ENABLE_SC1) {
+            // =========================
+            // SP: solo estado, sin unidad ni umbrales
+            // =========================
+            if (ENABLE_SP && UUID_SP && VAR_SP) {
 
-        const count = counts[sc1] || 0;
+                variables.push({
+                    variable_uuid: UUID_SP,
+                    variable_name: VAR_SP.name,
+                    topic: sp,
+                    count: counts[sp] || 0,
+                    state: lastState[sp] || 0,
+                    unit: "",
 
-        variables.push({
-            variable_name: "SENSOR DE CONTEO 1",
-            topic: sc1,
-            count: count,
-            state: lastState[sc1] || 0,
-            unit: "pulses",
+                    // La presencia es un estado, no un contador: no se suma.
+                    ...VAR_SP.campos
+                });
+            }
 
-            // NUEVO
-            thresholds: buildThresholds("sc1", count)
-        });
-    }
+            // =========================
+            // EMITIR MUESTRA
+            // =========================
+            node.send([{
+                device_uuid: config.device_uuid,
+                device_name: config.device_name,
+                start_range: startRange,
+                end_range: endRange,
+                variables: variables
+            }, null]);
 
-    // =========================
-    // SC2
-    // =========================
-    if (ENABLE_SC2) {
+            // =========================
+            // RESET
+            // =========================
+            Object.keys(counts).forEach(k => counts[k] = 0);
 
-        const count = counts[sc2] || 0;
-
-        variables.push({
-            variable_name: "SENSOR DE CONTEO 2",
-            topic: sc2,
-            count: count,
-            state: lastState[sc2] || 0,
-            unit: "pulses",
-
-            // NUEVO
-            thresholds: buildThresholds("sc2", count)
-        });
-    }
-
-    // =========================
-    // SP
-    // =========================
-    if (ENABLE_SP) {
-
-        variables.push({
-            variable_name: "SENSOR DE PRESENCIA",
-            topic: sp,
-            count: counts[sp] || 0,
-            state: lastState[sp] || 0,
-            unit: "pulses"
-        });
-    }
-
-    // =========================
-    // EMITIR REPORTE
-    // =========================
-    node.send([{
-        device_uuid: config.device_uuid,
-        device_name: config.device_name,
-        start_range: startRange,
-        end_range: endRange,
-        variables: variables
-    }, null]);
-
-    // =========================
-    // RESET
-    // =========================
-    Object.keys(counts).forEach(k => counts[k] = 0);
-
-    startRange = endRange;
-
-}, (config.report_interval || 10) * 1000);
+            startRange = endRange;
         
+        }, SAMPLE_INTERVAL_S * 1000);
 
         node.on('close', function () {
             clearInterval(timerProd);

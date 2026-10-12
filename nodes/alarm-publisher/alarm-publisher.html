@@ -1,0 +1,23 @@
+<script type="text/javascript">
+    RED.nodes.registerType('alarm-publisher', {
+        category: 'mentor-capturer',
+        color: '#F5C300',
+        defaults: {
+            name: { value: "" }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "bridge.svg",
+        paletteLabel: function () { return this._("alarm-publisher.palette"); },
+        label: function () {
+            return this.name || this._("alarm-publisher.palette");
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="alarm-publisher">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="node-red:common.label.name"></span></label>
+        <input type="text" id="node-input-name" data-i18n="[placeholder]node-red:common.label.name">
+    </div>
+</script>

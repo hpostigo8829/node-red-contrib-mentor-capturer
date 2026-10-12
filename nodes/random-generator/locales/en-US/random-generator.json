@@ -1,0 +1,29 @@
+{
+    "random-generator": {
+        "palette": "Random Generator",
+        "label": {
+            "min": "Min value",
+            "max": "Max value",
+            "mode": "Mode",
+            "random": "Random",
+            "smooth": "Smooth",
+            "walk": "Random Walk",
+            "sine": "Sine Wave",
+            "step": "Step",
+            "numberType": "Number Type",
+            "decimal": "Decimal",
+            "integer": "Integer",
+            "decimals": "Decimals",
+            "stepCount": "Step Count",
+            "stepMode": "Step Mode",
+            "sequential": "Sequential",
+            "sineSpeed": "Sine Speed",
+            "outputType": "Output Type",
+            "number": "Number",
+            "string": "String",
+            "interval": "Interval",
+            "seconds": "Seconds",
+            "minutes": "Minutes"
+        }
+    }
+}
